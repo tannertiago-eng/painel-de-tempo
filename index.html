@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel de Tempo</title>
+<meta name="description" content="Painel para deixar à vista em qualquer tela: o compromisso de agora da sua Google Agenda, com contagem regressiva e o que vem depois.">
+<meta name="theme-color" content="#07080A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,200..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --u: min(1vw, 1.7778vh);
+    --cor: #4A5263;
+    --fundo: #07080A;
+    --tinta: #F4F6F8;
+    --mudo: rgba(244, 246, 248, .52);
+    --display: 'Archivo', system-ui, sans-serif;
+    --texto: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --mola: cubic-bezier(.32, .72, 0, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--fundo);
+    color: var(--tinta);
+    font-family: var(--texto);
+    transition: background-color 1.2s var(--mola);
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;   /* toque duplo vira tela cheia, sem zoom */
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.sem-mouse { cursor: none; }
+  /* grão de filme, bem leve */
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .035;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* brilho grande na cor do compromisso, flutuando devagar */
+  #brilho {
+    position: fixed; inset: -25%; z-index: 0; pointer-events: none;
+    animation: deriva 28s var(--mola) infinite alternate; will-change: transform;
+  }
+  @keyframes deriva { to { transform: translate3d(4%, -3%, 0) scale(1.08); } }
+
+  /* o tanque: a cor da tela esvazia conforme o tempo passa */
+  #tanque {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 100%; z-index: 0;
+    background: var(--cor); opacity: .32;
+    transform: translateY(0); will-change: transform;
+    transition: transform 5s linear, background-color 1.2s var(--mola);
+  }
+  #tanque::before, #tanque::after {
+    content: ""; position: absolute; left: 0; width: 200%;
+    height: calc(var(--u) * 2.6); will-change: transform;
+    background: var(--cor);
+    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40' preserveAspectRatio='none'%3E%3Cpath d='M0 22 C50 0 100 0 150 22 S250 44 300 22 V40 H0 Z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40' preserveAspectRatio='none'%3E%3Cpath d='M0 22 C50 0 100 0 150 22 S250 44 300 22 V40 H0 Z'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x;
+    -webkit-mask-size: calc(100% / 6) 100%; mask-size: calc(100% / 6) 100%;   /* 3 ondas por tela */
+  }
+  #tanque::before { top: calc(var(--u) * -2.6); animation: onda-a 30s linear infinite; }
+  #tanque::after  { top: calc(var(--u) * -3.2); opacity: .5; animation: onda-b 48s linear infinite; }
+  @supports (background: color-mix(in srgb, red 50%, transparent)) {
+    #brilho {
+      background:
+        radial-gradient(38% 42% at 20% 28%, color-mix(in srgb, var(--cor) 34%, transparent), transparent 72%),
+        radial-gradient(32% 38% at 88% 78%, color-mix(in srgb, var(--cor) 16%, transparent), transparent 72%);
+    }
+    #tanque {
+      opacity: 1;
+      background: linear-gradient(to top, color-mix(in srgb, var(--cor) 58%, transparent), color-mix(in srgb, var(--cor) 24%, transparent) 72%, color-mix(in srgb, var(--cor) 16%, transparent));
+    }
+    #tanque::before { background: color-mix(in srgb, var(--cor) 16%, transparent); }
+    #tanque::after  { background: color-mix(in srgb, var(--cor) 9%, transparent); opacity: 1; }
+  }
+  @keyframes onda-a { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes onda-b { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+  body.fim #tanque::before { animation-duration: 10s; }
+  body.fim #tanque::after  { animation-duration: 16s; }
+
+  /* anel de alerta nos últimos 5 minutos */
+  #anel { position: fixed; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 0 calc(var(--u) * .6) rgba(255,255,255,.45); opacity: 0; }
+  body.fim #anel { animation: anel 2.4s ease-in-out infinite; }
+  body.ultimo #anel { animation-duration: .9s; }
+  @keyframes anel { 50% { opacity: 1; } }
+
+  main {
+    position: relative; z-index: 1; height: 100%;
+    padding: calc(var(--u) * 2.6 + env(safe-area-inset-top)) calc(var(--u) * 3.8 + env(safe-area-inset-right)) calc(var(--u) * 2.4 + env(safe-area-inset-bottom)) calc(var(--u) * 3.8 + env(safe-area-inset-left));
+    display: grid; grid-template-rows: auto 1fr auto; row-gap: calc(var(--u) * 1.6);
+  }
+
+  /* vidro em duas camadas: bandeja por fora, placa por dentro */
+  .moldura {
+    padding: calc(var(--u) * .45);
+    border-radius: calc(var(--u) * 2);
+    background: rgba(255, 255, 255, .035);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0, 0, 0, .25);
+  }
+  .miolo {
+    border-radius: calc(var(--u) * 1.55);
+    background: rgba(8, 10, 14, .64);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    padding: calc(var(--u) * 2) calc(var(--u) * 2.4);
+  }
+  #tarefas:empty { display: none; }
+
+  /* topo: duas ilhas de vidro */
+  header { display: flex; justify-content: space-between; align-items: center; }
+  .ilha {
+    display: flex; align-items: center; gap: calc(var(--u) * 1.4);
+    padding: calc(var(--u) * .8) calc(var(--u) * 1.8);
+    border-radius: 999px;
+    background: rgba(8, 10, 14, .58);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .06);
+  }
+  #relogio { font-family: var(--display); font-variation-settings: 'wdth' 88; font-weight: 600; font-size: calc(var(--u) * 3); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .sep { width: 1px; height: calc(var(--u) * 2.2); background: rgba(255, 255, 255, .16); }
+  #dia { font-family: var(--mono); font-weight: 500; font-size: max(9px, calc(var(--u) * 1.35)); letter-spacing: .24em; text-transform: uppercase; color: var(--mudo); }
+  #posicao { font-family: var(--mono); font-weight: 500; font-size: max(10px, calc(var(--u) * 1.5)); letter-spacing: .12em; color: var(--mudo); }
+  #posicao:empty { display: none; }
+  #velho { width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: #FFB020; box-shadow: 0 0 calc(var(--u) * .8) #FFB020; display: none; }
+  body.velho #velho { display: block; }
+  #som { width: calc(var(--u) * 2.1); height: calc(var(--u) * 2.1); opacity: .35; cursor: pointer; background: none; border: 0; color: var(--tinta); transition: opacity .4s var(--mola); }
+  #som.on { opacity: .9; }
+  #som svg { width: 100%; height: 100%; }
+
+  /* centro: nome e tempo à esquerda, linha do tempo à direita */
+  .centro { display: grid; grid-template-columns: 1.32fr 1fr; align-items: center; column-gap: calc(var(--u) * 4); min-height: 0; }
+  #nome {
+    font-family: var(--display); font-variation-settings: 'wdth' 76; font-weight: 800;
+    font-size: calc(var(--u) * 8.6); line-height: .92; letter-spacing: -.025em;
+    text-wrap: balance;
+  }
+  #nome.longo { font-size: calc(var(--u) * 7.2); }
+  #nome.muito { font-size: calc(var(--u) * 5.8); }
+  #nome .p { display: inline-block; overflow: hidden; vertical-align: top; padding: .12em 0 .06em; margin: -.12em .2em 0 0; }
+  #nome .p > span { display: inline-block; }
+
+  #contagem {
+    display: flex; align-items: baseline;
+    font-family: var(--display); font-variation-settings: 'wdth' 100; font-weight: 250;
+    font-size: calc(var(--u) * 15.5); line-height: .9; letter-spacing: -.02em;
+    margin-top: calc(var(--u) * 1.6);
+  }
+  #contagem .d { display: inline-block; width: .6em; text-align: center; }
+  #contagem .c { display: inline-block; width: .26em; text-align: center; transform: translateY(-.07em); opacity: .4; }
+  #contagem .tic { animation: tic .5s var(--mola); }
+  @keyframes tic { from { transform: translateY(-.12em); opacity: .1; } to { transform: none; opacity: 1; } }
+  body.fim #contagem { animation: pulso 2.4s ease-in-out infinite; }
+  body.ultimo #contagem { animation-duration: .9s; }
+  @keyframes pulso { 50% { opacity: .62; } }
+
+  /* faixa fina do compromisso: início, quanto já foi, fim */
+  .faixa { display: flex; align-items: center; gap: calc(var(--u) * 1.4); margin-top: calc(var(--u) * 2.2); max-width: calc(var(--u) * 52); }
+  .faixa span { font-family: var(--mono); font-size: max(10px, calc(var(--u) * 1.4)); color: var(--mudo); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+  .trilho-fino { position: relative; flex: 1; height: calc(var(--u) * .42); border-radius: 999px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+  #barra { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); border-radius: inherit;
+    background: linear-gradient(90deg, rgba(255,255,255,.35), #fff); box-shadow: 0 0 calc(var(--u) * 1) rgba(255,255,255,.5); transition: transform 1s linear; }
+
+  #tarefas { list-style: none; display: grid; gap: calc(var(--u) * 1.1); }
+  #tarefas li { display: flex; align-items: flex-start; gap: calc(var(--u) * 1.4); font-weight: 500; font-size: calc(var(--u) * 2.3); line-height: 1.18; letter-spacing: -.005em; }
+  #tarefas li i { flex: none; width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); margin-top: calc(var(--u) * .35); border-radius: 50%;
+    box-shadow: inset 0 0 0 calc(var(--u) * .2) rgba(255, 255, 255, .5); }
+
+  /* coluna da direita: linha do tempo antes, agora, depois */
+  .fila { position: relative; display: grid; gap: calc(var(--u) * 1); align-content: center; }
+  .fila::before { content: ""; position: absolute; left: calc(var(--u) * .55); top: calc(var(--u) * 2); bottom: calc(var(--u) * 2); width: 2px; background: linear-gradient(rgba(255,255,255,.04), rgba(255,255,255,.16) 50%, rgba(255,255,255,.04)); }
+  .passo { position: relative; padding-left: calc(var(--u) * 3.2); }
+  .ponto { position: absolute; left: 0; top: calc(var(--u) * 1.9); width: calc(var(--u) * 1.3); height: calc(var(--u) * 1.3); border-radius: 50%; }
+  .passo.antes .ponto { background: rgba(255,255,255,.28); }
+  .passo.depois .ponto { box-shadow: inset 0 0 0 2px rgba(255,255,255,.4); }
+  .passo.agora .ponto { top: calc(var(--u) * 2.6); background: var(--cor); box-shadow: 0 0 0 calc(var(--u) * .35) rgba(255,255,255,.08), 0 0 calc(var(--u) * 1.6) var(--cor); }
+  .cartao { padding: calc(var(--u) * 1.1) calc(var(--u) * 1.8); border-radius: calc(var(--u) * 1.4); background: rgba(8,10,14,.38); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .passo.antes { opacity: .42; }
+  .passo.depois { opacity: .58; }
+  .rotulo { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 1.4); margin-bottom: calc(var(--u) * .5); }
+  .rotulo .rot { font-family: var(--mono); font-weight: 500; font-size: max(8px, calc(var(--u) * 1.15)); letter-spacing: .24em; text-transform: uppercase; color: var(--mudo); }
+  .rotulo .hora { font-family: var(--mono); font-size: max(9px, calc(var(--u) * 1.35)); letter-spacing: .04em; color: var(--mudo); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tit { font-weight: 600; font-size: calc(var(--u) * 2.2); line-height: 1.15; letter-spacing: -.005em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .passo.agora .miolo { padding: calc(var(--u) * 1.6) calc(var(--u) * 2.2) calc(var(--u) * 1.9); }
+  .passo.agora .moldura { box-shadow: inset 0 0 0 1px rgba(255,255,255,.07), 0 0 calc(var(--u) * 4) rgba(0,0,0,.3); }
+  @supports (background: color-mix(in srgb, red 50%, transparent)) {
+    .passo.agora .moldura { background: color-mix(in srgb, var(--cor) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor) 45%, transparent), 0 0 calc(var(--u) * 4) color-mix(in srgb, var(--cor) 18%, transparent); }
+  }
+  .passo.agora .rotulo .rot, .passo.agora .rotulo .hora { color: var(--tinta); opacity: .8; }
+  .passo.agora .tit { font-size: calc(var(--u) * 2.6); margin-bottom: calc(var(--u) * 1.4); }
+  .passo.agora .tit:last-child { margin-bottom: 0; }
+
+  /* linha do dia */
+  .trilho-miolo { padding: calc(var(--u) * 1.3) calc(var(--u) * 1.8) calc(var(--u) * .9); }
+  .trilho { position: relative; }
+  #linha { position: relative; display: flex; height: calc(var(--u) * 1.5); gap: 3px; }
+  #linha .seg { height: 100%; border-radius: calc(var(--u) * .5); opacity: .28; transition: opacity .6s var(--mola); }
+  #linha .seg.vazio { background: none !important; opacity: 0; }
+  #linha .seg.atual { opacity: 1; box-shadow: 0 0 calc(var(--u) * 1.4) currentColor; }
+  #linha .seg.depois { opacity: .62; }
+  #agora { position: absolute; top: calc(var(--u) * -.7); bottom: calc(var(--u) * -.7); width: 3px; margin-left: -1.5px; background: #fff; border-radius: 99px; box-shadow: 0 0 calc(var(--u) * 1) rgba(255, 255, 255, .9); }
+  #horas { position: relative; height: max(12px, calc(var(--u) * 1.8)); margin-top: calc(var(--u) * .7); font-family: var(--mono); font-size: max(9px, calc(var(--u) * 1.2)); color: var(--mudo); }
+  #horas span { position: absolute; transform: translateX(-50%); }
+
+  /* entrada de um compromisso novo */
+  .entra #nome .p > span { animation: sobe .9s var(--mola) both; }
+  .entra #contagem { animation: sobe-fade 1s .2s var(--mola) both; }
+  .entra .fila .passo { animation: entra-lado .9s var(--mola) both; }
+  .entra .fila .passo.agora { animation-delay: .08s; }
+  .entra .fila .passo.depois { animation-delay: .16s; }
+  .entra #tarefas li { animation: entra-lado .8s var(--mola) both; }
+  @keyframes sobe { from { transform: translateY(105%); } to { transform: none; } }
+  @keyframes sobe-fade { from { transform: translateY(.1em); opacity: 0; filter: blur(8px); } to { transform: none; opacity: 1; filter: blur(0); } }
+  @keyframes entra-lado { from { transform: translateX(calc(var(--u) * 4)); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* últimos 10 minutos: nome, contagem e relógio vão do branco ao vermelho (com sombra para ler em cima da onda) */
+  body #nome, body #contagem, body #relogio {
+    color: var(--alerta-txt, var(--tinta));
+    text-shadow: 0 0 calc(var(--u) * .6) rgba(0,0,0,var(--sombra,0)), 0 calc(var(--u) * .15) calc(var(--u) * .35) rgba(0,0,0,var(--sombra,0));
+  }
+
+  /* conectar a agenda (só aparece na primeira vez) */
+  #conectar { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 8, .82); }
+  #conectar[hidden] { display: none; }
+  #conectar form { width: min(560px, 100%); }
+  #conectar .miolo { display: grid; gap: 16px; padding: 28px; }
+  #conectar h2 { font-family: var(--display); font-variation-settings: 'wdth' 80; font-weight: 750; font-size: 34px; line-height: 1; letter-spacing: -.02em; }
+  #conectar input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 0; outline: 0; font: 500 15px var(--mono); color: var(--tinta);
+    background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+  #conectar input:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+  #conectar .acoes { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  #conectar button { padding: 13px 22px; border: 0; border-radius: 999px; cursor: pointer; font: 600 15px var(--texto); color: #07080A; background: #F4F6F8; transition: transform .2s var(--mola); }
+  #conectar button:active { transform: scale(.97); }
+  #conectar a { color: var(--mudo); font-size: 14px; text-underline-offset: 3px; }
+  #conectar .erro { color: #FF7A70; font-size: 14px; }
+  #conectar .erro:empty { display: none; }
+
+  /* tela deitada de qualquer tamanho (TV, monitor, faixa baixa, celular deitado): o desenho de 16:9 escala pela medida que faltar */
+
+  /* tela em pé (celular, monitor vertical): uma coluna só, na proporção da largura e cabendo na altura */
+  @media (orientation: portrait) {
+    :root { --u: calc(min(1vw, .5625vh) * 2.2); }
+    main { padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); grid-template-rows: auto 1fr auto; height: auto; min-height: 100dvh; }
+    html, body { overflow-y: auto; }
+    .centro { grid-template-columns: 1fr; row-gap: calc(var(--u) * 2.5); align-content: center; }
+    #nome { font-size: calc(var(--u) * 5); } #nome.longo { font-size: calc(var(--u) * 4.32); } #nome.muito { font-size: calc(var(--u) * 3.64); }
+    #contagem { font-size: calc(var(--u) * 10); }
+    .faixa { max-width: none; }
+    #tarefas li, .tit { font-size: calc(var(--u) * 2); } .passo.agora .tit { font-size: calc(var(--u) * 2.27); }
+    #relogio { font-size: calc(var(--u) * 2.73); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #brilho, #tanque::before, #tanque::after, body.fim #anel, body.fim #contagem { animation: none; }
+    .entra * { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="brilho"></div>
+  <div id="tanque"></div>
+  <div id="anel"></div>
+
+  <main>
+    <header>
+      <div class="ilha"><div id="relogio">00:00</div><span class="sep"></span><div id="dia"></div></div>
+      <div class="ilha">
+        <div id="posicao"></div>
+        <div id="velho" title="Sem notícia da agenda há mais de 15 minutos"></div>
+        <button id="som" aria-label="Som" title="Som (tecla S)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path id="ondas" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="centro">
+      <div class="esq">
+        <h1 id="nome"></h1>
+        <div id="contagem" aria-hidden="true"></div>
+        <div class="faixa" id="faixa"><span id="barra-ini"></span><div class="trilho-fino"><i id="barra"></i></div><span id="barra-fim"></span></div>
+      </div>
+      <div class="dir fila">
+        <div class="passo antes" id="passo-antes"><span class="ponto"></span>
+          <div class="cartao"><div class="rotulo"><span class="rot">Antes</span><span class="hora" id="antes-hora"></span></div><div class="tit" id="antes-nome"></div></div>
+        </div>
+        <div class="passo agora"><span class="ponto"></span>
+          <div class="moldura"><div class="miolo">
+            <div class="rotulo"><span class="rot">Agora</span><span class="hora" id="agora-hora"></span></div>
+            <div class="tit" id="agora-nome"></div>
+            <ul id="tarefas"></ul>
+          </div></div>
+        </div>
+        <div class="passo depois" id="passo-depois"><span class="ponto"></span>
+          <div class="cartao"><div class="rotulo"><span class="rot">Depois</span><span class="hora" id="depois-hora"></span></div><div class="tit" id="depois-nome"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="moldura"><div class="miolo trilho-miolo">
+        <div class="trilho"><div id="linha"></div><div id="agora"></div></div>
+        <div id="horas"></div>
+      </div></div>
+    </footer>
+  </main>
+
+  <div id="conectar" hidden>
+    <form class="moldura" id="form-conectar"><div class="miolo">
+      <h2>Conectar a agenda</h2>
+      <input id="url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec" required>
+      <div class="erro" id="erro"></div>
+      <div class="acoes">
+        <button type="submit">Conectar</button>
+        <a href="?demo=1">Ver demonstração</a>
+        <a href="../" target="_blank" rel="noopener">Como instalar</a>
+      </div>
+    </div></form>
+  </div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const CURTO = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const P = new URLSearchParams(location.search);
+  const DEMO = P.has('demo');
+  const CHAVE_URL = 'painel-de-tempo:agenda', CHAVE_CACHE = 'painel-de-tempo:cache';
+  const BUSCA_A_CADA = 2 * 60000;
+
+  /* guardar no navegador pode falhar (aba anônima, bloqueio): o painel funciona igual, só não lembra */
+  const ler = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const guardar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
+
+  /* #agenda=ENDEREÇO conecta e fica no link (não vai para o servidor do site; vale para favorito e Tela de Início do celular).
+     ?agenda=ENDEREÇO também funciona, mas sai da barra de endereço. */
+  const H = new URLSearchParams(location.hash.slice(1));
+  if (P.get('agenda')) {
+    guardar(CHAVE_URL, P.get('agenda').trim());
+    P.delete('agenda');
+    history.replaceState(null, '', location.pathname + (P.toString() ? '?' + P : '') + location.hash);
+  }
+  if (H.get('agenda')) guardar(CHAVE_URL, H.get('agenda').trim());
+  let endereco = H.get('agenda') ? H.get('agenda').trim() : (ler(CHAVE_URL) || '');
+
+  /* tempo simulado para teste: ?t=14:05&data=2026-10-21&vel=60 */
+  const base = Date.now();
+  let inicio = base;
+  if (P.get('t')) {
+    const [h, m, s] = P.get('t').split(':').map(Number);
+    const d = new Date(); d.setHours(h, m || 0, s || 0, 0); inicio = d.getTime();
+  }
+  if (P.get('data')) {
+    const [y, mo, dd] = P.get('data').split('-').map(Number);
+    const d = new Date(inicio); d.setFullYear(y, mo - 1, dd); inicio = d.getTime();
+  }
+  const vel = Number(P.get('vel')) || 1;
+  const agora = () => new Date(inicio + (Date.now() - base) * vel);
+
+  const pad = n => String(n).padStart(2, '0');
+  const hm = s => pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60));
+  const chaveDe = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const maisDias = (d, k) => { const x = new Date(d); x.setDate(x.getDate() + k); return x; };
+
+  /* ===== dados da agenda ===== */
+  let EVENTOS = [], carregou = false, ultimoOk = 0;
+  const cache = {};
+  const corValida = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#4F8CFF';
+
+  /* tarefas = linhas da descrição que começam com "-", "•" ou "*" (ou itens de lista) */
+  function tarefasDe(desc) {
+    let t = String(desc || '')
+      .replace(/<li[^>]*>/gi, '\n- ')
+      .replace(/<(br|\/p|\/div|\/li|\/ul|\/ol)[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+    const ta = document.createElement('textarea'); ta.innerHTML = t; t = ta.value;
+    const marca = /^([-•*–]|\[ ?\])\s+/;
+    return t.split('\n').map(l => l.trim()).filter(l => marca.test(l)).map(l => l.replace(marca, '').trim()).filter(Boolean).slice(0, 5);
+  }
+
+  function receber(lista) {
+    EVENTOS = (lista || []).map(e => ({
+      ini: new Date(e.inicio), fim: new Date(e.fim),
+      nome: String(e.titulo || 'Sem título').replace(/\s+/g, ' ').trim(),
+      cor: corValida(e.cor), tarefas: tarefasDe(e.descricao)
+    })).filter(e => !isNaN(e.ini) && !isNaN(e.fim) && e.fim > e.ini);
+    Object.keys(cache).forEach(k => delete cache[k]);
+    carregou = true; ultimaChave = null;
+  }
+
+  /* busca por <script> (JSONP): funciona até abrindo o arquivo direto do computador */
+  let buscando = false, ultimoHash = '';
+  function buscar() {
+    if (DEMO || !endereco || buscando) return;
+    buscando = true;
+    const cb = '__agenda' + Date.now();
+    const sc = document.createElement('script');
+    const fim = () => { buscando = false; delete window[cb]; sc.remove(); clearTimeout(limite); };
+    const limite = setTimeout(() => { fim(); falhou(); }, 25000);
+    window[cb] = dados => {
+      fim();
+      if (!dados || !Array.isArray(dados.eventos)) { falhou(dados && dados.erro); return; }
+      ultimoOk = Date.now();
+      const h = JSON.stringify(dados.eventos);
+      guardar(CHAVE_CACHE, JSON.stringify({ fonte: endereco, quando: ultimoOk, eventos: dados.eventos }));
+      if (h !== ultimoHash) { ultimoHash = h; receber(dados.eventos); }
+      $('conectar').hidden = true;
+      avisoVelho();
+    };
+    sc.onerror = () => { fim(); falhou(); };
+    sc.src = endereco + (endereco.includes('?') ? '&' : '?') + 'callback=' + cb + '&t=' + Date.now();
+    document.head.appendChild(sc);
+  }
+  function falhou(msg) {
+    avisoVelho();
+    if (!carregou) {
+      $('erro').textContent = msg || 'Não consegui ler a agenda. Confira o endereço e se a implantação está para "Qualquer pessoa".';
+      $('url').value = endereco;
+      $('conectar').hidden = false;
+    }
+  }
+  function avisoVelho() {
+    document.body.classList.toggle('velho', !DEMO && carregou && Date.now() - ultimoOk > 15 * 60000);
+  }
+
+  $('form-conectar').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const u = $('url').value.trim();
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)) { $('erro').textContent = 'O endereço começa com https://script.google.com/macros/s/'; return; }
+    endereco = u; guardar(CHAVE_URL, u); $('erro').textContent = ''; carregou = false; ultimoHash = '';
+    if (H.get('agenda')) history.replaceState(null, '', location.pathname + location.search + '#agenda=' + encodeURIComponent(u));
+    buscar();
+  });
+
+  /* demonstração: um dia inventado em volta da hora de agora */
+  function eventosDemo() {
+    const b = agora(); b.setSeconds(0, 0); b.setMinutes(b.getMinutes() - b.getMinutes() % 10);
+    const ev = (a, f, titulo, cor, descricao) => ({ inicio: new Date(b.getTime() + a * 60000).toISOString(), fim: new Date(b.getTime() + f * 60000).toISOString(), titulo, cor, descricao: descricao || '' });
+    return [
+      ev(-210, -180, 'Café e e-mails', '#7986CB'),
+      ev(-180, -105, 'Planejar a semana', '#33B679', '- Revisar as metas\n- Escolher 3 prioridades'),
+      ev(-105, -90, 'Pausa', '#8E24AA'),
+      ev(-90, 20, 'Escrever a proposta', '#F4511E', '- Abrir o modelo\n- Preencher os números\n- Mandar para revisão'),
+      ev(20, 35, 'Pausa', '#8E24AA'),
+      ev(35, 95, 'Reunião com o time', '#3F51B5', '- Números da semana\n- Próximos passos'),
+      ev(95, 155, 'Almoço', '#039BE5'),
+      ev(155, 245, 'Gravar conteúdo', '#E67C73', '- Roteiro pronto\n- Luz e microfone')
+    ];
+  }
+
+  /* o mais curto ganha: entra por último e recorta os mais longos (ex.: reunião dentro de um bloco de foco) */
+  function blocos(data) {
+    const k = chaveDe(data);
+    if (cache[k]) return cache[k];
+    const d0 = new Date(data); d0.setHours(0, 0, 0, 0);
+    const d1 = maisDias(d0, 1);
+    const doDia = EVENTOS.filter(e => e.ini < d1 && e.fim > d0).map(e => ({
+      ini: Math.max(0, Math.round((e.ini - d0) / 1000)), fim: Math.min(86400, Math.round((e.fim - d0) / 1000)),
+      nome: e.nome, cor: e.cor, tarefas: e.tarefas
+    })).filter(x => x.fim - x.ini >= 60).sort((a, c) => (c.fim - c.ini) - (a.fim - a.ini));
+    let lista = [];
+    doDia.forEach(p => {
+      lista = lista.flatMap(x => {
+        if (x.fim <= p.ini || x.ini >= p.fim) return [x];
+        const partes = [];
+        if (x.ini < p.ini) partes.push({ ...x, fim: p.ini });
+        if (x.fim > p.fim) partes.push({ ...x, ini: p.fim });
+        return partes.filter(y => y.fim - y.ini >= 5 * 60);
+      });
+      lista.push(p);
+    });
+    lista.sort((a, c) => a.ini - c.ini);
+    return cache[k] = lista.map((x, i) => ({ ...x, i }));
+  }
+
+  /* o que está acontecendo agora */
+  function estado(now) {
+    const hoje = chaveDe(now), d = now.getDay();
+    const s = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const ms = now.getMilliseconds() / 1000;
+    const lista = blocos(now);
+    const idx = lista.findIndex(b => s >= b.ini && s < b.fim);
+    if (idx >= 0) {
+      const b = lista[idx];
+      const prox = lista[idx + 1] ? { b: lista[idx + 1], k: 0, dia: d } : proximoDia(now, 1);
+      return { fora: false, b, idx, lista, d, s, ms, rest: b.fim - s, total: b.fim - b.ini, prox, antes: lista[idx - 1] || null, ref: hoje, hoje, chave: hoje + '-' + b.ini + '-' + b.nome };
+    }
+    const antes = [...lista].reverse().find(b => b.fim <= s) || null;
+    const prox = lista.find(b => b.ini > s);
+    if (prox) return { fora: true, livre: lista.length && s > lista[0].ini, lista, d, s, ms, rest: prox.ini - s, total: null, prox: { b: prox, k: 0, dia: d }, antes, ref: hoje, hoje, chave: 'fora-' + hoje + '-' + prox.ini };
+    const n = proximoDia(now, 1);
+    if (!n) return { fora: true, vazio: true, lista, d, s, ms, rest: 86400 - s, total: null, prox: null, antes, ref: hoje, hoje, chave: 'vazio-' + hoje + '-' + carregou };
+    return { fora: true, lista: n.lista, d, s, ms, rest: 86400 - s + (n.k - 1) * 86400 + n.b.ini, total: null, prox: n, antes, ref: n.chave, hoje, chave: 'fora-' + n.chave + '-' + n.b.ini };
+  }
+  function proximoDia(now, k) {
+    for (let i = k; i <= 14; i++) {
+      const dt = maisDias(now, i), l = blocos(dt);
+      if (l.length) return { b: l[0], k: i, dia: dt.getDay(), lista: l, chave: chaveDe(dt) };
+    }
+    return null;
+  }
+  const nomeFora = e => !carregou ? 'Conectando' : e.vazio ? 'Agenda livre' : e.livre ? 'Livre' : 'Fora do expediente';
+
+  /* ===== desenho ===== */
+  const elNome = $('nome'), elCont = $('contagem'), elTar = $('tarefas'), elLinha = $('linha');
+  const elTanque = $('tanque'), elAgora = $('agora'), elHoras = $('horas');
+  let ultimaChave = null, ultimoTxt = '', enchendo = false, primeira = true, ultimoTanque = -1, ultimoMarcador = -1;
+
+  /* cor do compromisso; nos últimos 10 minutos ela vai virando vermelho (onda, fundo, nome e contagem) */
+  const VERMELHO = { cor: '#D42A20', fundo: '#240707', texto: '#FF5A4F' };
+  const NEUTRO = '#4A5263';
+  let corBase = NEUTRO, fundoBase = '#07080A', ultimoF = -1;
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mistura = (a, b, f) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * f).toString(16).padStart(2, '0')).join('');
+  /* a cor gira pelo caminho mais curto até o vermelho: verde passa por amarelo e laranja, azul e roxo passam pelo magenta */
+  const hsl = h => {
+    const [r, g, b] = rgb(h).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (mx + mn) / 2;
+    if (mx === mn) return [0, 0, L];
+    const d = mx - mn, S = L > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+    const H = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [H * 60, S, L];
+  };
+  const deHsl = ([H, S, L]) => {
+    const f = n => { const k = (n + H / 30) % 12, a = S * Math.min(L, 1 - L); return L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+    return '#' + [f(0), f(8), f(4)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  };
+  const misturaCor = (a, b, f) => {
+    const A = hsl(a), B = hsl(b);
+    let dh = B[0] - A[0]; if (dh > 180) dh -= 360; if (dh < -180) dh += 360;
+    return deHsl([(A[0] + dh * f + 360) % 360, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f]);
+  };
+  function pintar(f) {
+    if (ultimoF >= 0 && Math.abs(f - ultimoF) < 0.004) return;
+    ultimoF = f;
+    const r = document.documentElement.style;
+    r.setProperty('--cor', misturaCor(corBase, VERMELHO.cor, f));
+    r.setProperty('--fundo', misturaCor(fundoBase, VERMELHO.fundo, f));
+    r.setProperty('--alerta-txt', mistura('#F6F2EA', VERMELHO.texto, f));
+    r.setProperty('--sombra', (f * .85).toFixed(3));
+  }
+  function aplicarCor(cor) {
+    corBase = cor || NEUTRO;
+    fundoBase = cor ? mistura('#05070A', cor, .08) : '#07080A';
+    ultimoF = -1;
+    pintar(0);
+  }
+
+  function desenharBloco(e) {
+    const nome = e.fora ? nomeFora(e) : e.b.nome;
+    aplicarCor(e.fora ? null : e.b.cor);
+
+    elNome.className = nome.length > 26 ? 'muito' : nome.length > 13 ? 'longo' : '';
+    elNome.innerHTML = '';
+    nome.split(' ').forEach((w, i) => {
+      const p = document.createElement('span'); p.className = 'p';
+      const s = document.createElement('span'); s.textContent = w; s.style.animationDelay = (i * 0.09) + 's';
+      p.appendChild(s); elNome.appendChild(p);
+    });
+
+    elTar.innerHTML = '';
+    (e.fora ? [] : e.b.tarefas).forEach((t, i) => {
+      const li = document.createElement('li');
+      li.style.animationDelay = (0.45 + i * 0.14) + 's';
+      li.innerHTML = '<i></i><span></span>'; li.lastChild.textContent = t;
+      elTar.appendChild(li);
+    });
+
+    $('posicao').textContent = e.fora ? '' : (e.idx + 1) + ' / ' + e.lista.length;
+    $('faixa').style.visibility = e.fora ? 'hidden' : 'visible';
+    $('barra-ini').textContent = e.fora ? '' : hm(e.b.ini);
+    $('barra-fim').textContent = e.fora ? '' : hm(e.b.fim);
+    elCont.style.visibility = e.vazio || !carregou ? 'hidden' : 'visible';
+
+    desenharLinha(e);
+
+    document.body.classList.remove('entra'); void document.body.offsetWidth; document.body.classList.add('entra');
+
+    /* o tanque recarrega do zero */
+    enchendo = true;
+    elTanque.style.transition = 'none'; elTanque.style.transform = 'translateY(100%)'; void elTanque.offsetWidth;
+    elTanque.style.transition = 'transform 1.7s cubic-bezier(.2,.8,.2,1), background-color 1.2s ease';
+    ultimoTanque = alvoTanque(e);
+    elTanque.style.transform = 'translateY(' + (100 - ultimoTanque).toFixed(3) + '%)';
+    setTimeout(() => { elTanque.style.transition = ''; enchendo = false; }, 1800);
+
+    if (!primeira) tocar(e.fora ? 'fim' : 'inicio');
+    primeira = false;
+  }
+
+  const alvoTanque = e => e.fora ? 16 : Math.max(0, Math.min(100, (e.rest - e.ms) / e.total * 100));
+
+  function desenharLinha(e) {
+    const l = e.lista;
+    elLinha.innerHTML = ''; elHoras.innerHTML = '';
+    if (!l.length) return;
+    const t0 = l[0].ini, t1 = l[l.length - 1].fim, tot = t1 - t0;
+    let cur = t0;
+    l.forEach(b => {
+      if (b.ini > cur) addSeg('vazio', null, (b.ini - cur) / tot);
+      const classe = e.ref !== e.hoje || b.ini > e.s ? 'depois' : b.fim <= e.s ? 'antes' : 'atual';
+      addSeg(classe, b.cor, (b.fim - b.ini) / tot);
+      cur = b.fim;
+    });
+    function addSeg(cls, cor, frac) {
+      const s = document.createElement('div');
+      s.className = 'seg ' + cls;
+      s.style.flex = frac + ' 1 0';
+      if (cor) { s.style.background = cor; s.style.color = cor; }
+      elLinha.appendChild(s);
+    }
+    const passo = tot > 12 * 3600 ? 2 : 1;
+    for (let h = Math.ceil(t0 / 3600); h * 3600 <= t1; h += passo) {
+      const x = document.createElement('span');
+      x.textContent = h + 'h'; x.style.left = ((h * 3600 - t0) / tot * 100) + '%';
+      elHoras.appendChild(x);
+    }
+    elLinha.dataset.t0 = t0; elLinha.dataset.t1 = t1;
+    ultimoMarcador = -1;
+  }
+
+  function atualizarMarcador(e) {
+    const t0 = Number(elLinha.dataset.t0), t1 = Number(elLinha.dataset.t1);
+    const dentro = e.lista.length && e.ref === e.hoje && e.s >= t0 && e.s <= t1;
+    elAgora.style.display = dentro ? 'block' : 'none';
+    if (!dentro) return;
+    const pct = (e.s + e.ms - t0) / (t1 - t0) * 100;
+    if (Math.abs(pct - ultimoMarcador) < .05) return;
+    ultimoMarcador = pct;
+    elAgora.style.left = pct.toFixed(3) + '%';
+  }
+
+  /* coluna da direita: o que passou (apagado), o que está acontecendo (aceso) e o que vem (apagado) */
+  function textoProximo(e) {
+    const faixaHora = b => hm(b.ini) + ' às ' + hm(b.fim);
+    const a = e.antes;
+    $('passo-antes').style.display = a ? '' : 'none';
+    $('antes-nome').textContent = a ? a.nome : '';
+    $('antes-hora').textContent = a ? faixaHora(a) : '';
+    $('agora-nome').textContent = e.fora ? nomeFora(e) : e.b.nome;
+    $('agora-hora').textContent = e.fora ? '' : faixaHora(e.b);
+    const p = e.prox;
+    $('passo-depois').style.display = p ? '' : 'none';
+    if (!p) return;
+    $('depois-nome').textContent = p.b.nome;
+    $('depois-hora').textContent = p.k === 0 ? faixaHora(p.b) : (p.k === 1 ? 'Amanhã · ' : CURTO[p.dia] + ' · ') + hm(p.b.ini);
+  }
+
+  function formatar(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
+  }
+  function desenharContagem(txt) {
+    if (txt.length !== ultimoTxt.length) {
+      elCont.innerHTML = '';
+      for (const ch of txt) {
+        const sp = document.createElement('span');
+        sp.className = ch === ':' ? 'c' : 'd'; sp.textContent = ch; elCont.appendChild(sp);
+      }
+    } else {
+      for (let i = 0; i < txt.length; i++) {
+        if (txt[i] !== ultimoTxt[i]) {
+          const sp = elCont.children[i]; sp.textContent = txt[i];
+          sp.classList.remove('tic'); void sp.offsetWidth; sp.classList.add('tic');
+        }
+      }
+    }
+    ultimoTxt = txt;
+  }
+
+  let avisou5 = null;
+  function tick() {
+    const now = agora();
+    const hora = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    if ($('relogio').textContent !== hora) $('relogio').textContent = hora;
+    if ($('dia').textContent !== DIAS[now.getDay()]) $('dia').textContent = DIAS[now.getDay()];
+
+    const e = estado(now);
+    if (e.chave !== ultimaChave) { ultimaChave = e.chave; ultimoTxt = ''; desenharBloco(e); textoProximo(e); }
+    desenharContagem(formatar(e.rest));
+    const alvo = alvoTanque(e);
+    if (!enchendo && Math.abs(alvo - ultimoTanque) > .15) { ultimoTanque = alvo; elTanque.style.transform = 'translateY(' + (100 - alvo).toFixed(3) + '%)'; }
+    if (!e.fora) $('barra').style.transform = 'scaleX(' + Math.max(0, Math.min(1, 1 - (e.rest - e.ms) / e.total)).toFixed(4) + ')';
+    atualizarMarcador(e);
+
+    // 10 min antes começa a esquentar; nos 2 últimos minutos já está vermelho cheio
+    pintar(!e.fora && e.rest < 600 ? Math.min(1, (600 - e.rest + e.ms) / 480) : 0);
+    const fim = !e.fora && e.rest <= 300, ultimo = !e.fora && e.rest <= 60;
+    document.body.classList.toggle('fim', fim);
+    document.body.classList.toggle('ultimo', ultimo);
+    if (fim && avisou5 !== e.chave) { avisou5 = e.chave; tocar('aviso'); }
+
+    if (Date.now() - base > 60000 && new Date().getHours() === 3 && new Date().getMinutes() === 0) location.reload();
+  }
+
+  /* som: liga com um clique ou a tecla S */
+  let ctx = null, somLigado = false;
+  function tocar(tipo) {
+    if (!somLigado || !ctx) return;
+    const notas = { inicio: [[523, 0], [784, .16]], aviso: [[659, 0], [659, .22]], fim: [[784, 0], [523, .16]] }[tipo] || [];
+    notas.forEach(([f, t]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + t;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.22, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .7);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + .75);
+    });
+  }
+  function alternarSom() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    somLigado = !somLigado;
+    $('som').classList.toggle('on', somLigado);
+    $('ondas').style.display = somLigado ? '' : 'none';
+    if (somLigado) tocar('inicio');
+  }
+  $('som').addEventListener('click', e => { e.stopPropagation(); alternarSom(); });
+  $('ondas').style.display = 'none';
+
+  /* teclas: F tela cheia, S som, C trocar a agenda */
+  function telaCheia() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 's' || e.key === 'S') alternarSom();
+    if (e.key === 'f' || e.key === 'F') telaCheia();
+    if ((e.key === 'c' || e.key === 'C') && !DEMO) { $('url').value = endereco; $('erro').textContent = ''; $('conectar').hidden = false; $('url').focus(); }
+    if (e.key === 'Escape' && carregou) $('conectar').hidden = true;
+  });
+  document.addEventListener('dblclick', e => { if (!e.target.closest('#conectar')) telaCheia(); });
+  let moveu;
+  document.addEventListener('mousemove', () => { document.body.classList.remove('sem-mouse'); clearTimeout(moveu); moveu = setTimeout(() => document.body.classList.add('sem-mouse'), 2500); });
+  async function manterAcesa() { try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (_) {} }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { manterAcesa(); buscar(); } });
+  manterAcesa();
+
+  /* começo: demonstração, agenda guardada ou tela de conectar */
+  if (DEMO) {
+    receber(eventosDemo());
+  } else {
+    try {
+      const c = JSON.parse(ler(CHAVE_CACHE) || 'null');
+      if (endereco && c && c.fonte === endereco && Array.isArray(c.eventos)) { ultimoOk = c.quando || 0; ultimoHash = JSON.stringify(c.eventos); receber(c.eventos); }
+    } catch (_) {}
+    if (endereco) buscar(); else $('conectar').hidden = false;
+    setInterval(buscar, BUSCA_A_CADA);
+    setInterval(avisoVelho, 60000);
+  }
+
+  window.addEventListener('resize', () => atualizarMarcador(estado(agora())));
+  (function batida() { tick(); setTimeout(batida, 1000 - (Date.now() % 1000) + 15); })();
+})();
+</script>
+</body>
+</html>
