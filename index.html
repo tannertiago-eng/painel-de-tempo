@@ -2,756 +2,398 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Painel de Tempo</title>
-<meta name="description" content="Painel para deixar à vista em qualquer tela: o compromisso de agora da sua Google Agenda, com contagem regressiva e o que vem depois.">
-<meta name="theme-color" content="#07080A">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Painel">
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Tempo · ConsultPRO</title>
+<script>
+  /* links antigos do painel (endereço#agenda=...) seguem para o painel */
+  if (/(^#|&)agenda=/.test(location.hash)) location.replace('painel/' + location.hash);
+</script>
+<meta name="description" content="Sua Google Agenda sempre à vista, com contagem regressiva e as cores do seu jeito, em qualquer tela. Instalação guiada, sem programar.">
+<meta property="og:title" content="Painel de Tempo · ConsultPRO">
+<meta property="og:description" content="Sua Google Agenda sempre à vista, com contagem regressiva e as cores do seu jeito, em qualquer tela.">
+<meta property="og:image" content="https://tannertiago-eng.github.io/painel-de-tempo/docs/painel.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#1B3B6F">
+<link rel="icon" href="painel/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,200..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
   :root {
-    --u: min(1vw, 1.7778vh);
-    --cor: #4A5263;
-    --fundo: #07080A;
-    --tinta: #F4F6F8;
-    --mudo: rgba(244, 246, 248, .52);
-    --display: 'Archivo', system-ui, sans-serif;
-    --texto: 'IBM Plex Sans', system-ui, sans-serif;
-    --mono: 'IBM Plex Mono', ui-monospace, monospace;
-    --mola: cubic-bezier(.32, .72, 0, 1);
+    --brand: #1B3B6F;
+    --brand-claro: #E8EEF7;
+    --fundo: #F5F7FA;
+    --cartao: #FFFFFF;
+    --tinta: #16202E;
+    --mudo: #5B6675;
+    --linha: #E2E7EE;
+    --ok: #1E8E5A;
+    --erro: #C2362B;
+    --sombra: 0 1px 2px rgba(16, 32, 56, .06), 0 4px 16px rgba(16, 32, 56, .05);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    background: var(--fundo);
-    color: var(--tinta);
-    font-family: var(--texto);
-    transition: background-color 1.2s var(--mola);
-    -webkit-font-smoothing: antialiased;
-    touch-action: manipulation;   /* toque duplo vira tela cheia, sem zoom */
-    -webkit-tap-highlight-color: transparent;
-  }
-  body.sem-mouse { cursor: none; }
-  /* grão de filme, bem leve */
-  body::after {
-    content: ""; position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .035;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--fundo); color: var(--tinta); font: 400 16px/1.6 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--brand); text-underline-offset: 3px; }
+  b { font-weight: 600; }
+  .caixa { width: min(1040px, 100%); margin: 0 auto; padding: 0 24px; }
 
-  /* brilho grande na cor do compromisso, flutuando devagar */
-  #brilho {
-    position: fixed; inset: -25%; z-index: 0; pointer-events: none;
-    animation: deriva 28s var(--mola) infinite alternate; will-change: transform;
-  }
-  @keyframes deriva { to { transform: translate3d(4%, -3%, 0) scale(1.08); } }
+  /* topo */
+  .barra { background: var(--cartao); border-bottom: 1px solid var(--linha); }
+  .barra .caixa { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .marca { font-weight: 700; font-size: 18px; color: var(--brand); letter-spacing: -.01em; text-decoration: none; }
+  .barra nav a { color: var(--mudo); text-decoration: none; font-size: 15px; margin-left: 22px; }
+  .barra nav a:hover { color: var(--brand); }
 
-  /* o tanque: a cor da tela esvazia conforme o tempo passa */
-  #tanque {
-    position: fixed; left: 0; right: 0; bottom: 0; height: 100%; z-index: 0;
-    background: var(--cor); opacity: .32;
-    transform: translateY(0); will-change: transform;
-    transition: transform 5s linear, background-color 1.2s var(--mola);
-  }
-  #tanque::before, #tanque::after {
-    content: ""; position: absolute; left: 0; width: 200%;
-    height: calc(var(--u) * 2.6); will-change: transform;
-    background: var(--cor);
-    -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40' preserveAspectRatio='none'%3E%3Cpath d='M0 22 C50 0 100 0 150 22 S250 44 300 22 V40 H0 Z'/%3E%3C/svg%3E");
-            mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40' preserveAspectRatio='none'%3E%3Cpath d='M0 22 C50 0 100 0 150 22 S250 44 300 22 V40 H0 Z'/%3E%3C/svg%3E");
-    -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x;
-    -webkit-mask-size: calc(100% / 6) 100%; mask-size: calc(100% / 6) 100%;   /* 3 ondas por tela */
-  }
-  #tanque::before { top: calc(var(--u) * -2.6); animation: onda-a 30s linear infinite; }
-  #tanque::after  { top: calc(var(--u) * -3.2); opacity: .5; animation: onda-b 48s linear infinite; }
-  @supports (background: color-mix(in srgb, red 50%, transparent)) {
-    #brilho {
-      background:
-        radial-gradient(38% 42% at 20% 28%, color-mix(in srgb, var(--cor) 34%, transparent), transparent 72%),
-        radial-gradient(32% 38% at 88% 78%, color-mix(in srgb, var(--cor) 16%, transparent), transparent 72%);
-    }
-    #tanque {
-      opacity: 1;
-      background: linear-gradient(to top, color-mix(in srgb, var(--cor) 58%, transparent), color-mix(in srgb, var(--cor) 24%, transparent) 72%, color-mix(in srgb, var(--cor) 16%, transparent));
-    }
-    #tanque::before { background: color-mix(in srgb, var(--cor) 16%, transparent); }
-    #tanque::after  { background: color-mix(in srgb, var(--cor) 9%, transparent); opacity: 1; }
-  }
-  @keyframes onda-a { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @keyframes onda-b { from { transform: translateX(-50%); } to { transform: translateX(0); } }
-  body.fim #tanque::before { animation-duration: 10s; }
-  body.fim #tanque::after  { animation-duration: 16s; }
+  .hero { padding: 64px 0 24px; text-align: center; }
+  h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.025em; font-weight: 700; max-width: 760px; margin: 0 auto; text-wrap: balance; }
+  .sub { margin: 16px auto 0; max-width: 600px; font-size: 18px; color: var(--mudo); text-wrap: balance; }
+  .botoes { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .botao { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 22px; border-radius: 10px; border: 0; cursor: pointer;
+    font: 600 15px 'Inter', sans-serif; text-decoration: none; color: #fff; background: var(--brand); transition: background .2s, transform .1s; }
+  .botao:hover { background: #142D56; }
+  .botao:active { transform: scale(.98); }
+  .botao.leve { color: var(--brand); background: var(--cartao); box-shadow: inset 0 0 0 1px var(--linha); }
+  .botao.leve:hover { background: var(--brand-claro); }
+  .botao.pequeno { padding: 8px 14px; font-size: 14px; border-radius: 8px; }
+  .botao.feito { background: var(--ok); }
+  .botao:disabled { opacity: .5; cursor: default; }
 
-  /* anel de alerta nos últimos 5 minutos */
-  #anel { position: fixed; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 0 calc(var(--u) * .6) rgba(255,255,255,.45); opacity: 0; }
-  body.fim #anel { animation: anel 2.4s ease-in-out infinite; }
-  body.ultimo #anel { animation-duration: .9s; }
-  @keyframes anel { 50% { opacity: 1; } }
+  .vitrine { position: relative; margin: 44px auto 0; max-width: 900px; padding-right: 7%; }
+  .vitrine .tv { border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); box-shadow: 0 12px 40px rgba(16, 32, 56, .14); background: #050608; }
+  .vitrine .tv img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  .vitrine .cel { position: absolute; right: 0; bottom: -24px; width: 19%; padding: 5px; border-radius: 26px; background: #0B0D12; box-shadow: 0 16px 40px rgba(16, 32, 56, .25); }
+  .vitrine .cel img { display: block; width: 100%; height: auto; border-radius: 21px; aspect-ratio: 390 / 844; }
 
-  main {
-    position: relative; z-index: 1; height: 100%;
-    padding: calc(var(--u) * 2.6 + env(safe-area-inset-top)) calc(var(--u) * 3.8 + env(safe-area-inset-right)) calc(var(--u) * 2.4 + env(safe-area-inset-bottom)) calc(var(--u) * 3.8 + env(safe-area-inset-left));
-    display: grid; grid-template-rows: auto 1fr auto; row-gap: calc(var(--u) * 1.6);
-  }
+  /* seções e passos */
+  section { padding: 72px 0 0; }
+  h2 { font-size: 30px; line-height: 1.2; letter-spacing: -.02em; font-weight: 700; text-align: center; }
+  .h2-sub { text-align: center; color: var(--mudo); margin-top: 8px; }
+  .passos { list-style: none; display: grid; gap: 16px; margin: 32px auto 0; max-width: 800px; counter-reset: passo; }
+  .passo { display: grid; grid-template-columns: 40px 1fr; gap: 18px; padding: 24px; border-radius: 14px; background: var(--cartao); border: 1px solid var(--linha); box-shadow: var(--sombra); }
+  .passo::before { counter-increment: passo; content: counter(passo); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+    font-weight: 700; color: #fff; background: var(--brand); }
+  .passo h3 { font-size: 19px; line-height: 1.3; font-weight: 600; margin-top: 7px; }
+  .passo > div > p { color: var(--mudo); margin-top: 6px; }
+  .cliques { list-style: none; counter-reset: clique; display: grid; gap: 10px; margin-top: 14px; }
+  .cliques li { position: relative; padding-left: 34px; color: var(--mudo); }
+  .cliques li::before { counter-increment: clique; content: counter(clique); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 6px;
+    display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--brand); background: var(--brand-claro); }
+  .cliques b, .passo p b { color: var(--tinta); }
+  .acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .dica { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--brand-claro); color: var(--tinta); font-size: 15px; }
+  kbd { font: 600 13px 'Inter', sans-serif; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--linha); background: var(--fundo); }
 
-  /* vidro em duas camadas: bandeja por fora, placa por dentro */
-  .moldura {
-    padding: calc(var(--u) * .45);
-    border-radius: calc(var(--u) * 2);
-    background: rgba(255, 255, 255, .035);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0, 0, 0, .25);
-  }
-  .miolo {
-    border-radius: calc(var(--u) * 1.55);
-    background: rgba(8, 10, 14, .64);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
-    padding: calc(var(--u) * 2) calc(var(--u) * 2.4);
-  }
-  #tarefas:empty { display: none; }
+  /* legenda */
+  .legenda { display: grid; gap: 10px; margin-top: 16px; }
+  .item { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+  .item input[type=text] { width: 100%; padding: 11px 12px; border-radius: 9px; border: 1px solid var(--linha); font: 600 15px 'Inter', sans-serif; text-transform: uppercase; color: var(--tinta); background: var(--cartao); }
+  .item input[type=text]:focus, #endereco:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
+  .item input[type=text]::placeholder { text-transform: none; font-weight: 400; color: #9AA4B2; }
+  .cor-bt { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px 8px 8px; border-radius: 9px; border: 1px solid var(--linha); background: var(--cartao); cursor: pointer; font: 500 14px 'Inter', sans-serif; color: var(--tinta); min-width: 132px; }
+  .cor-bt i { width: 24px; height: 24px; border-radius: 6px; flex: none; }
+  .tirar { width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--linha); background: var(--cartao); color: var(--mudo); cursor: pointer; font-size: 18px; }
+  .tirar:hover { color: var(--erro); border-color: var(--erro); }
+  .paleta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-radius: 10px; background: var(--fundo); border: 1px solid var(--linha); }
+  .paleta button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 8px; border: 1px solid var(--linha); background: var(--cartao); cursor: pointer; font: 500 13px 'Inter', sans-serif; color: var(--tinta); }
+  .paleta button i { width: 20px; height: 20px; border-radius: 5px; }
+  .paleta button[aria-pressed=true] { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .previa { margin-top: 18px; padding: 16px; border-radius: 12px; background: #0B0D12; display: grid; gap: 8px; }
+  .previa span { display: block; padding: 10px 14px; border-radius: 8px; color: #fff; font-weight: 600; font-size: 14px; text-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+  .previa .vazia { color: #8A93A0; font-weight: 400; text-shadow: none; }
+  .previa-tit { margin-top: 18px; font-size: 13px; font-weight: 600; color: var(--mudo); text-transform: uppercase; letter-spacing: .06em; }
 
-  /* topo: duas ilhas de vidro */
-  header { display: flex; justify-content: space-between; align-items: center; }
-  .ilha {
-    display: flex; align-items: center; gap: calc(var(--u) * 1.4);
-    padding: calc(var(--u) * .8) calc(var(--u) * 1.8);
-    border-radius: 999px;
-    background: rgba(8, 10, 14, .58);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .06);
-  }
-  #relogio { font-family: var(--display); font-variation-settings: 'wdth' 88; font-weight: 600; font-size: calc(var(--u) * 3); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  .sep { width: 1px; height: calc(var(--u) * 2.2); background: rgba(255, 255, 255, .16); }
-  #dia { font-family: var(--mono); font-weight: 500; font-size: max(9px, calc(var(--u) * 1.35)); letter-spacing: .24em; text-transform: uppercase; color: var(--mudo); }
-  #posicao { font-family: var(--mono); font-weight: 500; font-size: max(10px, calc(var(--u) * 1.5)); letter-spacing: .12em; color: var(--mudo); }
-  #posicao:empty { display: none; }
-  #velho { width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: #FFB020; box-shadow: 0 0 calc(var(--u) * .8) #FFB020; display: none; }
-  body.velho #velho { display: block; }
-  #som { width: calc(var(--u) * 2.1); height: calc(var(--u) * 2.1); opacity: .35; cursor: pointer; background: none; border: 0; color: var(--tinta); transition: opacity .4s var(--mola); }
-  #som.on { opacity: .9; }
-  #som svg { width: 100%; height: 100%; }
+  /* endereço e resultado */
+  #endereco { width: 100%; margin-top: 14px; padding: 12px; border-radius: 9px; border: 1px solid var(--linha); font: 400 14px ui-monospace, Menlo, monospace; color: var(--tinta); }
+  .msg { margin-top: 10px; font-size: 15px; }
+  .msg.erro { color: var(--erro); }
+  .msg.ok { color: var(--ok); font-weight: 600; }
+  .pronto { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; margin-top: 18px; padding: 20px; border-radius: 12px; background: var(--fundo); border: 1px solid var(--linha); }
+  .pronto[hidden] { display: none; }
+  .qr { width: 180px; height: 180px; background: #fff; border-radius: 10px; border: 1px solid var(--linha); display: grid; place-items: center; overflow: hidden; }
+  .qr svg, .qr img { width: 100%; height: 100%; display: block; }
+  .pronto p { color: var(--mudo); font-size: 15px; margin-top: 8px; }
 
-  /* centro: nome e tempo à esquerda, linha do tempo à direita */
-  .centro { display: grid; grid-template-columns: 1.32fr 1fr; align-items: center; column-gap: calc(var(--u) * 4); min-height: 0; }
-  #nome {
-    font-family: var(--display); font-variation-settings: 'wdth' 76; font-weight: 800;
-    font-size: calc(var(--u) * 8.6); line-height: .92; letter-spacing: -.025em;
-    text-wrap: balance;
-  }
-  #nome.longo { font-size: calc(var(--u) * 7.2); }
-  #nome.muito { font-size: calc(var(--u) * 5.8); }
-  #nome .p { display: inline-block; overflow: hidden; vertical-align: top; padding: .12em 0 .06em; margin: -.12em .2em 0 0; }
-  #nome .p > span { display: inline-block; }
+  .duvidas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 32px auto 0; max-width: 880px; }
+  .duvida { padding: 22px; border-radius: 14px; background: var(--cartao); border: 1px solid var(--linha); }
+  .duvida h3 { font-size: 16px; font-weight: 600; }
+  .duvida p { margin-top: 6px; color: var(--mudo); font-size: 15px; }
+  code { font: 500 .9em ui-monospace, Menlo, monospace; background: var(--brand-claro); padding: 1px 6px; border-radius: 5px; }
 
-  #contagem {
-    display: flex; align-items: baseline;
-    font-family: var(--display); font-variation-settings: 'wdth' 100; font-weight: 250;
-    font-size: calc(var(--u) * 15.5); line-height: .9; letter-spacing: -.02em;
-    margin-top: calc(var(--u) * 1.6);
-  }
-  #contagem .d { display: inline-block; width: .6em; text-align: center; }
-  #contagem .c { display: inline-block; width: .26em; text-align: center; transform: translateY(-.07em); opacity: .4; }
-  #contagem .tic { animation: tic .5s var(--mola); }
-  @keyframes tic { from { transform: translateY(-.12em); opacity: .1; } to { transform: none; opacity: 1; } }
-  body.fim #contagem { animation: pulso 2.4s ease-in-out infinite; }
-  body.ultimo #contagem { animation-duration: .9s; }
-  @keyframes pulso { 50% { opacity: .62; } }
+  footer { margin-top: 80px; padding: 28px 0 40px; border-top: 1px solid var(--linha); text-align: center; color: var(--mudo); font-size: 14px; }
+  footer b { color: var(--brand); }
 
-  /* faixa fina do compromisso: início, quanto já foi, fim */
-  .faixa { display: flex; align-items: center; gap: calc(var(--u) * 1.4); margin-top: calc(var(--u) * 2.2); max-width: calc(var(--u) * 52); }
-  .faixa span { font-family: var(--mono); font-size: max(10px, calc(var(--u) * 1.4)); color: var(--mudo); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
-  .trilho-fino { position: relative; flex: 1; height: calc(var(--u) * .42); border-radius: 999px; background: rgba(255, 255, 255, .1); overflow: hidden; }
-  #barra { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); border-radius: inherit;
-    background: linear-gradient(90deg, rgba(255,255,255,.35), #fff); box-shadow: 0 0 calc(var(--u) * 1) rgba(255,255,255,.5); transition: transform 1s linear; }
-
-  #tarefas { list-style: none; display: grid; gap: calc(var(--u) * 1.1); }
-  #tarefas li { display: flex; align-items: flex-start; gap: calc(var(--u) * 1.4); font-weight: 500; font-size: calc(var(--u) * 2.3); line-height: 1.18; letter-spacing: -.005em; }
-  #tarefas li i { flex: none; width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); margin-top: calc(var(--u) * .35); border-radius: 50%;
-    box-shadow: inset 0 0 0 calc(var(--u) * .2) rgba(255, 255, 255, .5); }
-
-  /* coluna da direita: linha do tempo antes, agora, depois */
-  .fila { position: relative; display: grid; gap: calc(var(--u) * 1); align-content: center; }
-  .fila::before { content: ""; position: absolute; left: calc(var(--u) * .55); top: calc(var(--u) * 2); bottom: calc(var(--u) * 2); width: 2px; background: linear-gradient(rgba(255,255,255,.04), rgba(255,255,255,.16) 50%, rgba(255,255,255,.04)); }
-  .passo { position: relative; padding-left: calc(var(--u) * 3.2); }
-  .ponto { position: absolute; left: 0; top: calc(var(--u) * 1.9); width: calc(var(--u) * 1.3); height: calc(var(--u) * 1.3); border-radius: 50%; }
-  .passo.antes .ponto { background: rgba(255,255,255,.28); }
-  .passo.depois .ponto { box-shadow: inset 0 0 0 2px rgba(255,255,255,.4); }
-  .passo.agora .ponto { top: calc(var(--u) * 2.6); background: var(--cor); box-shadow: 0 0 0 calc(var(--u) * .35) rgba(255,255,255,.08), 0 0 calc(var(--u) * 1.6) var(--cor); }
-  .cartao { padding: calc(var(--u) * 1.1) calc(var(--u) * 1.8); border-radius: calc(var(--u) * 1.4); background: rgba(8,10,14,.38); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
-  .passo.antes { opacity: .42; }
-  .passo.depois { opacity: .58; }
-  .rotulo { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 1.4); margin-bottom: calc(var(--u) * .5); }
-  .rotulo .rot { font-family: var(--mono); font-weight: 500; font-size: max(8px, calc(var(--u) * 1.15)); letter-spacing: .24em; text-transform: uppercase; color: var(--mudo); }
-  .rotulo .hora { font-family: var(--mono); font-size: max(9px, calc(var(--u) * 1.35)); letter-spacing: .04em; color: var(--mudo); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .tit { font-weight: 600; font-size: calc(var(--u) * 2.2); line-height: 1.15; letter-spacing: -.005em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .passo.agora .miolo { padding: calc(var(--u) * 1.6) calc(var(--u) * 2.2) calc(var(--u) * 1.9); }
-  .passo.agora .moldura { box-shadow: inset 0 0 0 1px rgba(255,255,255,.07), 0 0 calc(var(--u) * 4) rgba(0,0,0,.3); }
-  @supports (background: color-mix(in srgb, red 50%, transparent)) {
-    .passo.agora .moldura { background: color-mix(in srgb, var(--cor) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor) 45%, transparent), 0 0 calc(var(--u) * 4) color-mix(in srgb, var(--cor) 18%, transparent); }
-  }
-  .passo.agora .rotulo .rot, .passo.agora .rotulo .hora { color: var(--tinta); opacity: .8; }
-  .passo.agora .tit { font-size: calc(var(--u) * 2.6); margin-bottom: calc(var(--u) * 1.4); }
-  .passo.agora .tit:last-child { margin-bottom: 0; }
-
-  /* linha do dia */
-  .trilho-miolo { padding: calc(var(--u) * 1.3) calc(var(--u) * 1.8) calc(var(--u) * .9); }
-  .trilho { position: relative; }
-  #linha { position: relative; display: flex; height: calc(var(--u) * 1.5); gap: 3px; }
-  #linha .seg { height: 100%; border-radius: calc(var(--u) * .5); opacity: .28; transition: opacity .6s var(--mola); }
-  #linha .seg.vazio { background: none !important; opacity: 0; }
-  #linha .seg.atual { opacity: 1; box-shadow: 0 0 calc(var(--u) * 1.4) currentColor; }
-  #linha .seg.depois { opacity: .62; }
-  #agora { position: absolute; top: calc(var(--u) * -.7); bottom: calc(var(--u) * -.7); width: 3px; margin-left: -1.5px; background: #fff; border-radius: 99px; box-shadow: 0 0 calc(var(--u) * 1) rgba(255, 255, 255, .9); }
-  #horas { position: relative; height: max(12px, calc(var(--u) * 1.8)); margin-top: calc(var(--u) * .7); font-family: var(--mono); font-size: max(9px, calc(var(--u) * 1.2)); color: var(--mudo); }
-  #horas span { position: absolute; transform: translateX(-50%); }
-
-  /* entrada de um compromisso novo */
-  .entra #nome .p > span { animation: sobe .9s var(--mola) both; }
-  .entra #contagem { animation: sobe-fade 1s .2s var(--mola) both; }
-  .entra .fila .passo { animation: entra-lado .9s var(--mola) both; }
-  .entra .fila .passo.agora { animation-delay: .08s; }
-  .entra .fila .passo.depois { animation-delay: .16s; }
-  .entra #tarefas li { animation: entra-lado .8s var(--mola) both; }
-  @keyframes sobe { from { transform: translateY(105%); } to { transform: none; } }
-  @keyframes sobe-fade { from { transform: translateY(.1em); opacity: 0; filter: blur(8px); } to { transform: none; opacity: 1; filter: blur(0); } }
-  @keyframes entra-lado { from { transform: translateX(calc(var(--u) * 4)); opacity: 0; } to { transform: none; opacity: 1; } }
-
-  /* últimos 10 minutos: nome, contagem e relógio vão do branco ao vermelho (com sombra para ler em cima da onda) */
-  body #nome, body #contagem, body #relogio {
-    color: var(--alerta-txt, var(--tinta));
-    text-shadow: 0 0 calc(var(--u) * .6) rgba(0,0,0,var(--sombra,0)), 0 calc(var(--u) * .15) calc(var(--u) * .35) rgba(0,0,0,var(--sombra,0));
-  }
-
-  /* conectar a agenda (só aparece na primeira vez) */
-  #conectar { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: rgba(5, 6, 8, .82); }
-  #conectar[hidden] { display: none; }
-  #conectar form { width: min(560px, 100%); }
-  #conectar .miolo { display: grid; gap: 16px; padding: 28px; }
-  #conectar h2 { font-family: var(--display); font-variation-settings: 'wdth' 80; font-weight: 750; font-size: 34px; line-height: 1; letter-spacing: -.02em; }
-  #conectar input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 0; outline: 0; font: 500 15px var(--mono); color: var(--tinta);
-    background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
-  #conectar input:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
-  #conectar .acoes { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-  #conectar button { padding: 13px 22px; border: 0; border-radius: 999px; cursor: pointer; font: 600 15px var(--texto); color: #07080A; background: #F4F6F8; transition: transform .2s var(--mola); }
-  #conectar button:active { transform: scale(.97); }
-  #conectar a { color: var(--mudo); font-size: 14px; text-underline-offset: 3px; }
-  #conectar .erro { color: #FF7A70; font-size: 14px; }
-  #conectar .erro:empty { display: none; }
-
-  /* tela deitada de qualquer tamanho (TV, monitor, faixa baixa, celular deitado): o desenho de 16:9 escala pela medida que faltar */
-
-  /* tela em pé (celular, monitor vertical): uma coluna só, na proporção da largura e cabendo na altura */
-  @media (orientation: portrait) {
-    :root { --u: calc(min(1vw, .5625vh) * 2.2); }
-    main { padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); grid-template-rows: auto 1fr auto; height: auto; min-height: 100dvh; }
-    html, body { overflow-y: auto; }
-    .centro { grid-template-columns: 1fr; row-gap: calc(var(--u) * 2.5); align-content: center; }
-    #nome { font-size: calc(var(--u) * 5); } #nome.longo { font-size: calc(var(--u) * 4.32); } #nome.muito { font-size: calc(var(--u) * 3.64); }
-    #contagem { font-size: calc(var(--u) * 10); }
-    .faixa { max-width: none; }
-    #tarefas li, .tit { font-size: calc(var(--u) * 2); } .passo.agora .tit { font-size: calc(var(--u) * 2.27); }
-    #relogio { font-size: calc(var(--u) * 2.73); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    #brilho, #tanque::before, #tanque::after, body.fim #anel, body.fim #contagem { animation: none; }
-    .entra * { animation: none !important; }
+  @media (max-width: 720px) {
+    .caixa { padding: 0 16px; }
+    .barra nav { display: none; }
+    .hero { padding: 40px 0 16px; }
+    h1 { font-size: 29px; }
+    .sub { font-size: 16.5px; }
+    .vitrine { margin-top: 32px; padding-right: 9%; }
+    .vitrine .cel { width: 24%; bottom: -14px; padding: 3px; border-radius: 14px; }
+    .vitrine .cel img { border-radius: 11px; }
+    section { padding-top: 56px; }
+    h2 { font-size: 24px; }
+    .passo { grid-template-columns: 1fr; gap: 12px; padding: 18px 16px; }
+    .passo::before { width: 34px; height: 34px; }
+    .passo h3 { margin-top: 0; }
+    .item { grid-template-columns: 1fr auto; }
+    .item .cor-bt { grid-column: 1; grid-row: 2; min-width: 0; }
+    .item .tirar { grid-column: 2; grid-row: 1; }
+    .pronto { grid-template-columns: 1fr; justify-items: start; }
+    .duvidas { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
-  <div id="brilho"></div>
-  <div id="tanque"></div>
-  <div id="anel"></div>
+  <div class="barra"><div class="caixa">
+    <a class="marca" href="#">ConsultPRO</a>
+    <nav><a href="#instalar">Instalar</a><a href="#duvidas">Dúvidas</a><a href="painel/?demo=1" target="_blank" rel="noopener">Demonstração</a></nav>
+  </div></div>
 
-  <main>
-    <header>
-      <div class="ilha"><div id="relogio">00:00</div><span class="sep"></span><div id="dia"></div></div>
-      <div class="ilha">
-        <div id="posicao"></div>
-        <div id="velho" title="Sem notícia da agenda há mais de 15 minutos"></div>
-        <button id="som" aria-label="Som" title="Som (tecla S)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path id="ondas" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
-        </button>
-      </div>
-    </header>
+  <header class="hero caixa">
+    <h1>Sua Google Agenda sempre à vista, com as cores do seu jeito</h1>
+    <p class="sub">Um painel com o compromisso de agora em letra grande e contagem regressiva, para deixar na TV, no monitor ou no celular. Você escolhe a cor de cada tipo de atividade.</p>
+    <div class="botoes">
+      <a class="botao" href="#instalar">Começar a instalação</a>
+      <a class="botao leve" href="painel/?demo=1" target="_blank" rel="noopener">Ver demonstração ↗</a>
+    </div>
+    <div class="vitrine">
+      <div class="tv"><img src="docs/painel.webp" width="1600" height="900" alt="Painel de Tempo numa tela deitada: o compromisso de agora, a contagem regressiva, o que veio antes e o que vem depois"></div>
+      <div class="cel"><img src="docs/celular.webp" width="390" height="844" alt="O mesmo painel no celular em pé"></div>
+    </div>
+  </header>
 
-    <section class="centro">
-      <div class="esq">
-        <h1 id="nome"></h1>
-        <div id="contagem" aria-hidden="true"></div>
-        <div class="faixa" id="faixa"><span id="barra-ini"></span><div class="trilho-fino"><i id="barra"></i></div><span id="barra-fim"></span></div>
-      </div>
-      <div class="dir fila">
-        <div class="passo antes" id="passo-antes"><span class="ponto"></span>
-          <div class="cartao"><div class="rotulo"><span class="rot">Antes</span><span class="hora" id="antes-hora"></span></div><div class="tit" id="antes-nome"></div></div>
-        </div>
-        <div class="passo agora"><span class="ponto"></span>
-          <div class="moldura"><div class="miolo">
-            <div class="rotulo"><span class="rot">Agora</span><span class="hora" id="agora-hora"></span></div>
-            <div class="tit" id="agora-nome"></div>
-            <ul id="tarefas"></ul>
-          </div></div>
-        </div>
-        <div class="passo depois" id="passo-depois"><span class="ponto"></span>
-          <div class="cartao"><div class="rotulo"><span class="rot">Depois</span><span class="hora" id="depois-hora"></span></div><div class="tit" id="depois-nome"></div></div>
-        </div>
-      </div>
+  <main class="caixa">
+    <section id="instalar">
+      <h2>Como instalar</h2>
+      <p class="h2-sub">Leva uns 10 minutos. Não precisa saber programar, só seguir os cliques.</p>
+      <ol class="passos">
+
+        <li class="passo"><div>
+          <h3>Monte a sua legenda de cores</h3>
+          <p>Escolha uma palavra para cada tipo de atividade e a cor dela. Todo compromisso cujo título <b>começar</b> com essa palavra aparece no painel com essa cor.</p>
+          <div class="legenda" id="legenda"></div>
+          <div class="acoes"><button class="botao leve pequeno" id="mais" type="button">+ Adicionar palavra</button></div>
+          <div class="previa-tit">Como vai aparecer no painel</div>
+          <div class="previa" id="previa"></div>
+          <p class="dica">Na Google Agenda, escreva a palavra no começo do título, por exemplo <b>COMERCIAL: Ligação com cliente</b>. Maiúscula, minúscula e acento não fazem diferença. Compromissos sem palavra da legenda ficam com a cor que têm na Agenda.</p>
+        </div></li>
+
+        <li class="passo"><div>
+          <h3>Crie a conexão com a sua agenda</h3>
+          <p>A conexão é um pequeno programa que fica na <b>sua</b> conta Google e só lê a agenda.</p>
+          <ol class="cliques">
+            <li>Clique em <b>Copiar o código</b>.</li>
+            <li>Clique em <b>Abrir o Google</b> e entre com a conta da sua agenda, se ele pedir. Vai abrir uma página com um texto que começa com <code>function myFunction</code>.</li>
+            <li>Apague todo esse texto (<kbd>Ctrl</kbd>+<kbd>A</kbd> e depois <kbd>Delete</kbd>; no Mac, <kbd>⌘</kbd>+<kbd>A</kbd>) e cole o código (<kbd>Ctrl</kbd>+<kbd>V</kbd>; no Mac, <kbd>⌘</kbd>+<kbd>V</kbd>).</li>
+            <li>Clique no nome <b>Projeto sem título</b>, lá em cima, troque por <b>Painel de Tempo</b> e clique em <b>Renomear</b>.</li>
+            <li>Clique no ícone de disquete (<b>Salvar projeto</b>).</li>
+          </ol>
+          <div class="acoes">
+            <button class="botao pequeno" id="copiar-codigo" type="button">Copiar o código</button>
+            <a class="botao leve pequeno" href="https://script.google.com/create" target="_blank" rel="noopener">Abrir o Google ↗</a>
+          </div>
+        </div></li>
+
+        <li class="passo"><div>
+          <h3>Deixe a conexão só com permissão de leitura</h3>
+          <p>Assim o Google pede apenas para <b>ver</b> a agenda, nunca para mudar nada nela.</p>
+          <ol class="cliques">
+            <li>Na barra da esquerda, clique na engrenagem (<b>Configurações do projeto</b>).</li>
+            <li>Marque <b>Mostrar arquivo de manifesto "appsscript.json" no editor</b>.</li>
+            <li>Na barra da esquerda, clique em <b>&lt; &gt;</b> (<b>Editor</b>) e depois no arquivo <b>appsscript.json</b>.</li>
+            <li>Clique em <b>Copiar o ajuste</b> aqui, apague tudo o que estiver nesse arquivo, cole e salve no disquete.</li>
+          </ol>
+          <div class="acoes"><button class="botao pequeno" id="copiar-ajuste" type="button">Copiar o ajuste</button></div>
+        </div></li>
+
+        <li class="passo"><div>
+          <h3>Publique a conexão</h3>
+          <ol class="cliques">
+            <li>No canto de cima, à direita, clique no botão azul <b>Implantar</b> e depois em <b>Nova implantação</b>.</li>
+            <li>Ao lado de "Selecionar tipo", clique na engrenagem e escolha <b>App da Web</b>.</li>
+            <li>Confira: <b>Executar como: Eu</b> e <b>Quem pode acessar: Qualquer pessoa</b>. Clique em <b>Implantar</b>.</li>
+            <li>Clique em <b>Autorizar acesso</b> e escolha a sua conta.</li>
+            <li>Na tela "O Google não verificou este app", clique em <b>Avançado</b> e depois em <b>Acessar Painel de Tempo (não seguro)</b>. É normal: o app é seu e acabou de ser criado.</li>
+            <li>Clique em <b>Permitir</b> ou <b>Continuar</b>.</li>
+            <li>Vai aparecer o <b>URL do app da Web</b>, que termina em <code>/exec</code>. Clique em <b>Copiar</b>.</li>
+          </ol>
+        </div></li>
+
+        <li class="passo"><div>
+          <h3>Cole o endereço e receba o seu painel</h3>
+          <p>Cole aqui o endereço que você copiou no passo anterior.</p>
+          <input id="endereco" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec">
+          <div class="acoes"><button class="botao" id="conectar" type="button">Conectar e gerar meu painel</button></div>
+          <div class="msg" id="msg" role="status"></div>
+          <div class="pronto" id="pronto" hidden>
+            <div>
+              <b>Seu painel está pronto.</b>
+              <p>Guarde este link nos favoritos do navegador. No celular, aponte a câmera para o QR code.</p>
+              <div class="acoes">
+                <a class="botao pequeno" id="abrir" href="#" target="_blank" rel="noopener">Abrir meu painel ↗</a>
+                <button class="botao leve pequeno" id="copiar-link" type="button">Copiar o link</button>
+                <a class="botao leve pequeno" id="baixar-qr" href="#" download="Painel de Tempo no celular.gif">Baixar o QR code</a>
+              </div>
+              <p>⚠️ Não compartilhe esse link nem o QR code: quem tiver ele consegue ver os seus compromissos.</p>
+            </div>
+            <div class="qr" id="qr"></div>
+          </div>
+        </div></li>
+      </ol>
     </section>
 
-    <footer>
-      <div class="moldura"><div class="miolo trilho-miolo">
-        <div class="trilho"><div id="linha"></div><div id="agora"></div></div>
-        <div id="horas"></div>
-      </div></div>
-    </footer>
+    <section id="duvidas">
+      <h2>Dúvidas</h2>
+      <div class="duvidas">
+        <div class="duvida"><h3>É seguro?</h3><p>A conexão fica na sua conta Google e só lê a agenda. Ninguém além de você tem o endereço dela, a não ser que você o compartilhe.</p></div>
+        <div class="duvida"><h3>Quero mudar as cores depois</h3><p>Monte a legenda de novo no passo 1, cole o mesmo endereço no passo 5 e abra o link novo. Não precisa mexer no Google.</p></div>
+        <div class="duvida"><h3>Onde posso deixar o painel?</h3><p>Em qualquer tela: TV, monitor extra, tela pequena ou celular, em pé ou deitado. Ele se ajusta sozinho.</p></div>
+        <div class="duvida"><h3>Como deixo em tela cheia?</h3><p>No computador, aperte <b>F</b> ou dê dois cliques. No Android, toque duas vezes. No iPhone, use <b>Compartilhar</b> e <b>Adicionar à Tela de Início</b>.</p></div>
+        <div class="duvida"><h3>Como coloco tarefas no bloco?</h3><p>Na descrição do evento, escreva uma tarefa por linha, cada uma começando com <code>-</code>.</p></div>
+        <div class="duvida"><h3>Deu "Não consegui ler a agenda"</h3><p>Confira se você terminou a autorização do passo 4 e se escolheu <b>Qualquer pessoa</b>. Em conta de empresa (Google Workspace), o administrador pode estar bloqueando.</p></div>
+      </div>
+    </section>
   </main>
 
-  <div id="conectar" hidden>
-    <form class="moldura" id="form-conectar"><div class="miolo">
-      <h2>Conectar a agenda</h2>
-      <input id="url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/.../exec" required>
-      <div class="erro" id="erro"></div>
-      <div class="acoes">
-        <button type="submit">Conectar</button>
-        <a href="?demo=1">Ver demonstração</a>
-        <a href="../" target="_blank" rel="noopener">Como instalar</a>
-      </div>
-    </div></form>
-  </div>
+  <footer><div class="caixa">Feito por <b>ConsultPRO</b></div></footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-  const CURTO = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  const P = new URLSearchParams(location.search);
-  const DEMO = P.has('demo');
-  const CHAVE_URL = 'painel-de-tempo:agenda', CHAVE_CACHE = 'painel-de-tempo:cache';
-  const BUSCA_A_CADA = 2 * 60000;
-
-  /* guardar no navegador pode falhar (aba anônima, bloqueio): o painel funciona igual, só não lembra */
+  const CORES = [
+    ['Vermelho', '#D50000'], ['Rosa', '#E05472'], ['Laranja', '#F4511E'], ['Amarelo', '#F6BF26'],
+    ['Verde', '#33B679'], ['Verde-escuro', '#0B8043'], ['Azul-claro', '#039BE5'], ['Azul', '#4285F4'],
+    ['Anil', '#3F51B5'], ['Lilás', '#7986CB'], ['Roxo', '#8E24AA'], ['Marrom', '#795548'], ['Cinza', '#616161']
+  ];
+  const nomeDaCor = hex => (CORES.find(c => c[1] === hex) || ['Cor'])[0];
+  const CHAVE = 'consultpro-painel:legenda';
   const ler = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
-  const guardar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
+  const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+  const limpa = t => String(t || '').replace(/[,~&#=]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
 
-  /* #agenda=ENDEREÇO conecta e fica no link (não vai para o servidor do site; vale para favorito e Tela de Início do celular).
-     ?agenda=ENDEREÇO também funciona, mas sai da barra de endereço. */
-  const H = new URLSearchParams(location.hash.slice(1));
-  if (P.get('agenda')) {
-    guardar(CHAVE_URL, P.get('agenda').trim());
-    P.delete('agenda');
-    history.replaceState(null, '', location.pathname + (P.toString() ? '?' + P : '') + location.hash);
-  }
-  if (H.get('agenda')) guardar(CHAVE_URL, H.get('agenda').trim());
-  let endereco = H.get('agenda') ? H.get('agenda').trim() : (ler(CHAVE_URL) || '');
+  let itens;
+  try { itens = JSON.parse(ler(CHAVE) || 'null'); } catch (_) {}
+  if (!Array.isArray(itens) || !itens.length) itens = [
+    { palavra: 'TRABALHO', cor: '#4285F4' }, { palavra: 'PESSOAL', cor: '#33B679' }, { palavra: 'SAÚDE', cor: '#E05472' }
+  ];
+  let aberto = -1;
 
-  /* tempo simulado para teste: ?t=14:05&data=2026-10-21&vel=60 */
-  const base = Date.now();
-  let inicio = base;
-  if (P.get('t')) {
-    const [h, m, s] = P.get('t').split(':').map(Number);
-    const d = new Date(); d.setHours(h, m || 0, s || 0, 0); inicio = d.getTime();
-  }
-  if (P.get('data')) {
-    const [y, mo, dd] = P.get('data').split('-').map(Number);
-    const d = new Date(inicio); d.setFullYear(y, mo - 1, dd); inicio = d.getTime();
-  }
-  const vel = Number(P.get('vel')) || 1;
-  const agora = () => new Date(inicio + (Date.now() - base) * vel);
-
-  const pad = n => String(n).padStart(2, '0');
-  const hm = s => pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60));
-  const chaveDe = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-  const maisDias = (d, k) => { const x = new Date(d); x.setDate(x.getDate() + k); return x; };
-
-  /* ===== dados da agenda ===== */
-  let EVENTOS = [], carregou = false, ultimoOk = 0;
-  const cache = {};
-  const corValida = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#4F8CFF';
-
-  /* tarefas = linhas da descrição que começam com "-", "•" ou "*" (ou itens de lista) */
-  function tarefasDe(desc) {
-    let t = String(desc || '')
-      .replace(/<li[^>]*>/gi, '\n- ')
-      .replace(/<(br|\/p|\/div|\/li|\/ul|\/ol)[^>]*>/gi, '\n')
-      .replace(/<[^>]+>/g, '');
-    const ta = document.createElement('textarea'); ta.innerHTML = t; t = ta.value;
-    const marca = /^([-•*–]|\[ ?\])\s+/;
-    return t.split('\n').map(l => l.trim()).filter(l => marca.test(l)).map(l => l.replace(marca, '').trim()).filter(Boolean).slice(0, 5);
-  }
-
-  function receber(lista) {
-    EVENTOS = (lista || []).map(e => ({
-      ini: new Date(e.inicio), fim: new Date(e.fim),
-      nome: String(e.titulo || 'Sem título').replace(/\s+/g, ' ').trim(),
-      cor: corValida(e.cor), tarefas: tarefasDe(e.descricao)
-    })).filter(e => !isNaN(e.ini) && !isNaN(e.fim) && e.fim > e.ini);
-    Object.keys(cache).forEach(k => delete cache[k]);
-    carregou = true; ultimaChave = null;
-  }
-
-  /* busca por <script> (JSONP): funciona até abrindo o arquivo direto do computador */
-  let buscando = false, ultimoHash = '';
-  function buscar() {
-    if (DEMO || !endereco || buscando) return;
-    buscando = true;
-    const cb = '__agenda' + Date.now();
-    const sc = document.createElement('script');
-    const fim = () => { buscando = false; delete window[cb]; sc.remove(); clearTimeout(limite); };
-    const limite = setTimeout(() => { fim(); falhou(); }, 25000);
-    window[cb] = dados => {
-      fim();
-      if (!dados || !Array.isArray(dados.eventos)) { falhou(dados && dados.erro); return; }
-      ultimoOk = Date.now();
-      const h = JSON.stringify(dados.eventos);
-      guardar(CHAVE_CACHE, JSON.stringify({ fonte: endereco, quando: ultimoOk, eventos: dados.eventos }));
-      if (h !== ultimoHash) { ultimoHash = h; receber(dados.eventos); }
-      $('conectar').hidden = true;
-      avisoVelho();
-    };
-    sc.onerror = () => { fim(); falhou(); };
-    sc.src = endereco + (endereco.includes('?') ? '&' : '?') + 'callback=' + cb + '&t=' + Date.now();
-    document.head.appendChild(sc);
-  }
-  function falhou(msg) {
-    avisoVelho();
-    if (!carregou) {
-      $('erro').textContent = msg || 'Não consegui ler a agenda. Confira o endereço e se a implantação está para "Qualquer pessoa".';
-      $('url').value = endereco;
-      $('conectar').hidden = false;
-    }
-  }
-  function avisoVelho() {
-    document.body.classList.toggle('velho', !DEMO && carregou && Date.now() - ultimoOk > 15 * 60000);
-  }
-
-  $('form-conectar').addEventListener('submit', ev => {
-    ev.preventDefault();
-    const u = $('url').value.trim();
-    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)) { $('erro').textContent = 'O endereço começa com https://script.google.com/macros/s/'; return; }
-    endereco = u; guardar(CHAVE_URL, u); $('erro').textContent = ''; carregou = false; ultimoHash = '';
-    if (H.get('agenda')) history.replaceState(null, '', location.pathname + location.search + '#agenda=' + encodeURIComponent(u));
-    buscar();
-  });
-
-  /* demonstração: um dia inventado em volta da hora de agora */
-  function eventosDemo() {
-    const b = agora(); b.setSeconds(0, 0); b.setMinutes(b.getMinutes() - b.getMinutes() % 10);
-    const ev = (a, f, titulo, cor, descricao) => ({ inicio: new Date(b.getTime() + a * 60000).toISOString(), fim: new Date(b.getTime() + f * 60000).toISOString(), titulo, cor, descricao: descricao || '' });
-    return [
-      ev(-210, -180, 'Café e e-mails', '#7986CB'),
-      ev(-180, -105, 'Planejar a semana', '#33B679', '- Revisar as metas\n- Escolher 3 prioridades'),
-      ev(-105, -90, 'Pausa', '#8E24AA'),
-      ev(-90, 20, 'Escrever a proposta', '#F4511E', '- Abrir o modelo\n- Preencher os números\n- Mandar para revisão'),
-      ev(20, 35, 'Pausa', '#8E24AA'),
-      ev(35, 95, 'Reunião com o time', '#3F51B5', '- Números da semana\n- Próximos passos'),
-      ev(95, 155, 'Almoço', '#039BE5'),
-      ev(155, 245, 'Gravar conteúdo', '#E67C73', '- Roteiro pronto\n- Luz e microfone')
-    ];
-  }
-
-  /* o mais curto ganha: entra por último e recorta os mais longos (ex.: reunião dentro de um bloco de foco) */
-  function blocos(data) {
-    const k = chaveDe(data);
-    if (cache[k]) return cache[k];
-    const d0 = new Date(data); d0.setHours(0, 0, 0, 0);
-    const d1 = maisDias(d0, 1);
-    const doDia = EVENTOS.filter(e => e.ini < d1 && e.fim > d0).map(e => ({
-      ini: Math.max(0, Math.round((e.ini - d0) / 1000)), fim: Math.min(86400, Math.round((e.fim - d0) / 1000)),
-      nome: e.nome, cor: e.cor, tarefas: e.tarefas
-    })).filter(x => x.fim - x.ini >= 60).sort((a, c) => (c.fim - c.ini) - (a.fim - a.ini));
-    let lista = [];
-    doDia.forEach(p => {
-      lista = lista.flatMap(x => {
-        if (x.fim <= p.ini || x.ini >= p.fim) return [x];
-        const partes = [];
-        if (x.ini < p.ini) partes.push({ ...x, fim: p.ini });
-        if (x.fim > p.fim) partes.push({ ...x, ini: p.fim });
-        return partes.filter(y => y.fim - y.ini >= 5 * 60);
-      });
-      lista.push(p);
-    });
-    lista.sort((a, c) => a.ini - c.ini);
-    return cache[k] = lista.map((x, i) => ({ ...x, i }));
-  }
-
-  /* o que está acontecendo agora */
-  function estado(now) {
-    const hoje = chaveDe(now), d = now.getDay();
-    const s = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    const ms = now.getMilliseconds() / 1000;
-    const lista = blocos(now);
-    const idx = lista.findIndex(b => s >= b.ini && s < b.fim);
-    if (idx >= 0) {
-      const b = lista[idx];
-      const prox = lista[idx + 1] ? { b: lista[idx + 1], k: 0, dia: d } : proximoDia(now, 1);
-      return { fora: false, b, idx, lista, d, s, ms, rest: b.fim - s, total: b.fim - b.ini, prox, antes: lista[idx - 1] || null, ref: hoje, hoje, chave: hoje + '-' + b.ini + '-' + b.nome };
-    }
-    const antes = [...lista].reverse().find(b => b.fim <= s) || null;
-    const prox = lista.find(b => b.ini > s);
-    if (prox) return { fora: true, livre: lista.length && s > lista[0].ini, lista, d, s, ms, rest: prox.ini - s, total: null, prox: { b: prox, k: 0, dia: d }, antes, ref: hoje, hoje, chave: 'fora-' + hoje + '-' + prox.ini };
-    const n = proximoDia(now, 1);
-    if (!n) return { fora: true, vazio: true, lista, d, s, ms, rest: 86400 - s, total: null, prox: null, antes, ref: hoje, hoje, chave: 'vazio-' + hoje + '-' + carregou };
-    return { fora: true, lista: n.lista, d, s, ms, rest: 86400 - s + (n.k - 1) * 86400 + n.b.ini, total: null, prox: n, antes, ref: n.chave, hoje, chave: 'fora-' + n.chave + '-' + n.b.ini };
-  }
-  function proximoDia(now, k) {
-    for (let i = k; i <= 14; i++) {
-      const dt = maisDias(now, i), l = blocos(dt);
-      if (l.length) return { b: l[0], k: i, dia: dt.getDay(), lista: l, chave: chaveDe(dt) };
-    }
-    return null;
-  }
-  const nomeFora = e => !carregou ? 'Conectando' : e.vazio ? 'Agenda livre' : e.livre ? 'Livre' : 'Fora do expediente';
-
-  /* ===== desenho ===== */
-  const elNome = $('nome'), elCont = $('contagem'), elTar = $('tarefas'), elLinha = $('linha');
-  const elTanque = $('tanque'), elAgora = $('agora'), elHoras = $('horas');
-  let ultimaChave = null, ultimoTxt = '', enchendo = false, primeira = true, ultimoTanque = -1, ultimoMarcador = -1;
-
-  /* cor do compromisso; nos últimos 10 minutos ela vai virando vermelho (onda, fundo, nome e contagem) */
-  const VERMELHO = { cor: '#D42A20', fundo: '#240707', texto: '#FF5A4F' };
-  const NEUTRO = '#4A5263';
-  let corBase = NEUTRO, fundoBase = '#07080A', ultimoF = -1;
-  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-  const mistura = (a, b, f) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * f).toString(16).padStart(2, '0')).join('');
-  /* a cor gira pelo caminho mais curto até o vermelho: verde passa por amarelo e laranja, azul e roxo passam pelo magenta */
-  const hsl = h => {
-    const [r, g, b] = rgb(h).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (mx + mn) / 2;
-    if (mx === mn) return [0, 0, L];
-    const d = mx - mn, S = L > .5 ? d / (2 - mx - mn) : d / (mx + mn);
-    const H = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    return [H * 60, S, L];
-  };
-  const deHsl = ([H, S, L]) => {
-    const f = n => { const k = (n + H / 30) % 12, a = S * Math.min(L, 1 - L); return L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
-    return '#' + [f(0), f(8), f(4)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
-  };
-  const misturaCor = (a, b, f) => {
-    const A = hsl(a), B = hsl(b);
-    let dh = B[0] - A[0]; if (dh > 180) dh -= 360; if (dh < -180) dh += 360;
-    return deHsl([(A[0] + dh * f + 360) % 360, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f]);
-  };
-  function pintar(f) {
-    if (ultimoF >= 0 && Math.abs(f - ultimoF) < 0.004) return;
-    ultimoF = f;
-    const r = document.documentElement.style;
-    r.setProperty('--cor', misturaCor(corBase, VERMELHO.cor, f));
-    r.setProperty('--fundo', misturaCor(fundoBase, VERMELHO.fundo, f));
-    r.setProperty('--alerta-txt', mistura('#F6F2EA', VERMELHO.texto, f));
-    r.setProperty('--sombra', (f * .85).toFixed(3));
-  }
-  function aplicarCor(cor) {
-    corBase = cor || NEUTRO;
-    fundoBase = cor ? mistura('#05070A', cor, .08) : '#07080A';
-    ultimoF = -1;
-    pintar(0);
-  }
-
-  function desenharBloco(e) {
-    const nome = e.fora ? nomeFora(e) : e.b.nome;
-    aplicarCor(e.fora ? null : e.b.cor);
-
-    elNome.className = nome.length > 26 ? 'muito' : nome.length > 13 ? 'longo' : '';
-    elNome.innerHTML = '';
-    nome.split(' ').forEach((w, i) => {
-      const p = document.createElement('span'); p.className = 'p';
-      const s = document.createElement('span'); s.textContent = w; s.style.animationDelay = (i * 0.09) + 's';
-      p.appendChild(s); elNome.appendChild(p);
-    });
-
-    elTar.innerHTML = '';
-    (e.fora ? [] : e.b.tarefas).forEach((t, i) => {
-      const li = document.createElement('li');
-      li.style.animationDelay = (0.45 + i * 0.14) + 's';
-      li.innerHTML = '<i></i><span></span>'; li.lastChild.textContent = t;
-      elTar.appendChild(li);
-    });
-
-    $('posicao').textContent = e.fora ? '' : (e.idx + 1) + ' / ' + e.lista.length;
-    $('faixa').style.visibility = e.fora ? 'hidden' : 'visible';
-    $('barra-ini').textContent = e.fora ? '' : hm(e.b.ini);
-    $('barra-fim').textContent = e.fora ? '' : hm(e.b.fim);
-    elCont.style.visibility = e.vazio || !carregou ? 'hidden' : 'visible';
-
-    desenharLinha(e);
-
-    document.body.classList.remove('entra'); void document.body.offsetWidth; document.body.classList.add('entra');
-
-    /* o tanque recarrega do zero */
-    enchendo = true;
-    elTanque.style.transition = 'none'; elTanque.style.transform = 'translateY(100%)'; void elTanque.offsetWidth;
-    elTanque.style.transition = 'transform 1.7s cubic-bezier(.2,.8,.2,1), background-color 1.2s ease';
-    ultimoTanque = alvoTanque(e);
-    elTanque.style.transform = 'translateY(' + (100 - ultimoTanque).toFixed(3) + '%)';
-    setTimeout(() => { elTanque.style.transition = ''; enchendo = false; }, 1800);
-
-    if (!primeira) tocar(e.fora ? 'fim' : 'inicio');
-    primeira = false;
-  }
-
-  const alvoTanque = e => e.fora ? 16 : Math.max(0, Math.min(100, (e.rest - e.ms) / e.total * 100));
-
-  function desenharLinha(e) {
-    const l = e.lista;
-    elLinha.innerHTML = ''; elHoras.innerHTML = '';
-    if (!l.length) return;
-    const t0 = l[0].ini, t1 = l[l.length - 1].fim, tot = t1 - t0;
-    let cur = t0;
-    l.forEach(b => {
-      if (b.ini > cur) addSeg('vazio', null, (b.ini - cur) / tot);
-      const classe = e.ref !== e.hoje || b.ini > e.s ? 'depois' : b.fim <= e.s ? 'antes' : 'atual';
-      addSeg(classe, b.cor, (b.fim - b.ini) / tot);
-      cur = b.fim;
-    });
-    function addSeg(cls, cor, frac) {
-      const s = document.createElement('div');
-      s.className = 'seg ' + cls;
-      s.style.flex = frac + ' 1 0';
-      if (cor) { s.style.background = cor; s.style.color = cor; }
-      elLinha.appendChild(s);
-    }
-    const passo = tot > 12 * 3600 ? 2 : 1;
-    for (let h = Math.ceil(t0 / 3600); h * 3600 <= t1; h += passo) {
-      const x = document.createElement('span');
-      x.textContent = h + 'h'; x.style.left = ((h * 3600 - t0) / tot * 100) + '%';
-      elHoras.appendChild(x);
-    }
-    elLinha.dataset.t0 = t0; elLinha.dataset.t1 = t1;
-    ultimoMarcador = -1;
-  }
-
-  function atualizarMarcador(e) {
-    const t0 = Number(elLinha.dataset.t0), t1 = Number(elLinha.dataset.t1);
-    const dentro = e.lista.length && e.ref === e.hoje && e.s >= t0 && e.s <= t1;
-    elAgora.style.display = dentro ? 'block' : 'none';
-    if (!dentro) return;
-    const pct = (e.s + e.ms - t0) / (t1 - t0) * 100;
-    if (Math.abs(pct - ultimoMarcador) < .05) return;
-    ultimoMarcador = pct;
-    elAgora.style.left = pct.toFixed(3) + '%';
-  }
-
-  /* coluna da direita: o que passou (apagado), o que está acontecendo (aceso) e o que vem (apagado) */
-  function textoProximo(e) {
-    const faixaHora = b => hm(b.ini) + ' às ' + hm(b.fim);
-    const a = e.antes;
-    $('passo-antes').style.display = a ? '' : 'none';
-    $('antes-nome').textContent = a ? a.nome : '';
-    $('antes-hora').textContent = a ? faixaHora(a) : '';
-    $('agora-nome').textContent = e.fora ? nomeFora(e) : e.b.nome;
-    $('agora-hora').textContent = e.fora ? '' : faixaHora(e.b);
-    const p = e.prox;
-    $('passo-depois').style.display = p ? '' : 'none';
-    if (!p) return;
-    $('depois-nome').textContent = p.b.nome;
-    $('depois-hora').textContent = p.k === 0 ? faixaHora(p.b) : (p.k === 1 ? 'Amanhã · ' : CURTO[p.dia] + ' · ') + hm(p.b.ini);
-  }
-
-  function formatar(sec) {
-    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
-    return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
-  }
-  function desenharContagem(txt) {
-    if (txt.length !== ultimoTxt.length) {
-      elCont.innerHTML = '';
-      for (const ch of txt) {
-        const sp = document.createElement('span');
-        sp.className = ch === ':' ? 'c' : 'd'; sp.textContent = ch; elCont.appendChild(sp);
+  function desenhar() {
+    const box = $('legenda'); box.innerHTML = '';
+    itens.forEach((it, i) => {
+      const linha = document.createElement('div'); linha.className = 'item';
+      const campo = document.createElement('input');
+      campo.type = 'text'; campo.value = it.palavra; campo.placeholder = 'Palavra, ex.: COMERCIAL'; campo.maxLength = 30;
+      campo.setAttribute('aria-label', 'Palavra ' + (i + 1));
+      campo.addEventListener('input', () => { it.palavra = limpa(campo.value); salvar(); previa(); });
+      const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'cor-bt';
+      bt.innerHTML = '<i></i><span></span>'; bt.querySelector('i').style.background = it.cor; bt.querySelector('span').textContent = nomeDaCor(it.cor);
+      bt.setAttribute('aria-expanded', String(aberto === i));
+      bt.addEventListener('click', () => { aberto = aberto === i ? -1 : i; desenhar(); });
+      const tirar = document.createElement('button'); tirar.type = 'button'; tirar.className = 'tirar'; tirar.textContent = '×';
+      tirar.setAttribute('aria-label', 'Remover palavra ' + (i + 1));
+      tirar.addEventListener('click', () => { itens.splice(i, 1); aberto = -1; salvar(); desenhar(); });
+      linha.append(campo, bt, tirar);
+      if (aberto === i) {
+        const pal = document.createElement('div'); pal.className = 'paleta';
+        CORES.forEach(([nome, hex]) => {
+          const c = document.createElement('button'); c.type = 'button';
+          c.innerHTML = '<i></i>'; c.querySelector('i').style.background = hex; c.append(nome);
+          c.setAttribute('aria-pressed', String(it.cor === hex));
+          c.addEventListener('click', () => { it.cor = hex; aberto = -1; salvar(); desenhar(); });
+          pal.append(c);
+        });
+        linha.append(pal);
       }
+      box.append(linha);
+    });
+    previa();
+  }
+  function previa() {
+    const p = $('previa'); p.innerHTML = '';
+    const validos = itens.filter(it => it.palavra);
+    if (!validos.length) { const s = document.createElement('span'); s.className = 'vazia'; s.textContent = 'Escreva pelo menos uma palavra.'; p.append(s); return; }
+    validos.forEach(it => { const s = document.createElement('span'); s.style.background = it.cor; s.textContent = it.palavra + ': exemplo de compromisso'; p.append(s); });
+  }
+  function salvar() { guardar(CHAVE, JSON.stringify(itens)); }
+  const legendaDoLink = () => itens.filter(it => it.palavra).map(it => limpa(it.palavra) + '~' + it.cor.slice(1)).join(',');
+
+  $('mais').addEventListener('click', () => {
+    const usada = itens.map(i => i.cor);
+    itens.push({ palavra: '', cor: (CORES.find(c => usada.indexOf(c[1]) < 0) || CORES[0])[1] });
+    aberto = -1; salvar(); desenhar();
+    const campos = $('legenda').querySelectorAll('input'); campos[campos.length - 1].focus();
+  });
+  desenhar();
+
+  async function copiar(texto, bt, rotulo) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(texto); ok = true; } catch (_) {
+      const ta = document.createElement('textarea'); ta.value = texto; document.body.append(ta); ta.select();
+      try { ok = document.execCommand('copy'); } catch (_) {} ta.remove();
+    }
+    bt.textContent = ok ? 'Copiado ✓' : 'Não deu: tente de novo';
+    bt.classList.toggle('feito', ok);
+    setTimeout(() => { bt.textContent = rotulo; bt.classList.remove('feito'); }, 2500);
+  }
+  function botaoDeArquivo(id, arquivo, rotulo) {
+    let texto = null;
+    fetch(arquivo).then(r => r.ok ? r.text() : null).then(t => { texto = t; }).catch(() => {});
+    $(id).addEventListener('click', async () => {
+      if (!texto) { try { const r = await fetch(arquivo); texto = r.ok ? await r.text() : null; } catch (_) {} }
+      if (!texto) { $(id).textContent = 'Sem internet? Recarregue a página'; return; }
+      copiar(texto, $(id), rotulo);
+    });
+  }
+  botaoDeArquivo('copiar-codigo', 'conexao/Codigo.gs', 'Copiar o código');
+  botaoDeArquivo('copiar-ajuste', 'conexao/appsscript.json', 'Copiar o ajuste');
+
+  /* passo 5: testa o endereço do mesmo jeito que o painel lê (JSONP) */
+  function testar(url) {
+    return new Promise(resolve => {
+      const cb = '__painel_teste_' + Date.now();
+      const sc = document.createElement('script');
+      const fim = r => { clearTimeout(t); delete window[cb]; sc.remove(); resolve(r); };
+      const t = setTimeout(() => fim(null), 25000);
+      window[cb] = dados => fim(dados);
+      sc.onerror = () => fim(null);
+      sc.src = url + '?callback=' + cb + '&t=' + Date.now();
+      document.head.append(sc);
+    });
+  }
+  let link = '';
+  $('conectar').addEventListener('click', async () => {
+    const url = $('endereco').value.trim();
+    const msg = $('msg'); msg.className = 'msg'; $('pronto').hidden = true;
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) {
+      msg.className = 'msg erro'; msg.textContent = 'O endereço precisa começar com https://script.google.com/macros/s/ e terminar com /exec.'; return;
+    }
+    $('conectar').disabled = true; msg.textContent = 'Testando a conexão com a sua agenda…';
+    const r = await testar(url);
+    $('conectar').disabled = false;
+    if (!r || !r.ok) {
+      msg.className = 'msg erro';
+      msg.textContent = r && r.erro ? 'O Google respondeu: ' + r.erro : 'Não consegui ler a agenda. Confira se terminou a autorização do passo 4 e se escolheu "Qualquer pessoa".';
+      return;
+    }
+    const n = (r.eventos || []).length;
+    msg.className = 'msg ok'; msg.textContent = 'Conectado! Encontrei ' + n + (n === 1 ? ' compromisso' : ' compromissos') + ' nos próximos dias.';
+    const leg = legendaDoLink();
+    link = new URL('painel/', location.href).href + '#agenda=' + encodeURIComponent(url) + (leg ? '&legenda=' + encodeURIComponent(leg) : '');
+    $('abrir').href = link;
+    if (window.qrcode) {
+      const qr = qrcode(0, 'L'); qr.addData(link); qr.make();
+      $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
+      $('baixar-qr').href = qr.createDataURL(8, 4); $('baixar-qr').hidden = false;
     } else {
-      for (let i = 0; i < txt.length; i++) {
-        if (txt[i] !== ultimoTxt[i]) {
-          const sp = elCont.children[i]; sp.textContent = txt[i];
-          sp.classList.remove('tic'); void sp.offsetWidth; sp.classList.add('tic');
-        }
-      }
+      $('qr').textContent = 'QR code indisponível'; $('baixar-qr').hidden = true;
     }
-    ultimoTxt = txt;
-  }
-
-  let avisou5 = null;
-  function tick() {
-    const now = agora();
-    const hora = pad(now.getHours()) + ':' + pad(now.getMinutes());
-    if ($('relogio').textContent !== hora) $('relogio').textContent = hora;
-    if ($('dia').textContent !== DIAS[now.getDay()]) $('dia').textContent = DIAS[now.getDay()];
-
-    const e = estado(now);
-    if (e.chave !== ultimaChave) { ultimaChave = e.chave; ultimoTxt = ''; desenharBloco(e); textoProximo(e); }
-    desenharContagem(formatar(e.rest));
-    const alvo = alvoTanque(e);
-    if (!enchendo && Math.abs(alvo - ultimoTanque) > .15) { ultimoTanque = alvo; elTanque.style.transform = 'translateY(' + (100 - alvo).toFixed(3) + '%)'; }
-    if (!e.fora) $('barra').style.transform = 'scaleX(' + Math.max(0, Math.min(1, 1 - (e.rest - e.ms) / e.total)).toFixed(4) + ')';
-    atualizarMarcador(e);
-
-    // 10 min antes começa a esquentar; nos 2 últimos minutos já está vermelho cheio
-    pintar(!e.fora && e.rest < 600 ? Math.min(1, (600 - e.rest + e.ms) / 480) : 0);
-    const fim = !e.fora && e.rest <= 300, ultimo = !e.fora && e.rest <= 60;
-    document.body.classList.toggle('fim', fim);
-    document.body.classList.toggle('ultimo', ultimo);
-    if (fim && avisou5 !== e.chave) { avisou5 = e.chave; tocar('aviso'); }
-
-    if (Date.now() - base > 60000 && new Date().getHours() === 3 && new Date().getMinutes() === 0) location.reload();
-  }
-
-  /* som: liga com um clique ou a tecla S */
-  let ctx = null, somLigado = false;
-  function tocar(tipo) {
-    if (!somLigado || !ctx) return;
-    const notas = { inicio: [[523, 0], [784, .16]], aviso: [[659, 0], [659, .22]], fim: [[784, 0], [523, .16]] }[tipo] || [];
-    notas.forEach(([f, t]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + t;
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.22, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .7);
-      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + .75);
-    });
-  }
-  function alternarSom() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
-    somLigado = !somLigado;
-    $('som').classList.toggle('on', somLigado);
-    $('ondas').style.display = somLigado ? '' : 'none';
-    if (somLigado) tocar('inicio');
-  }
-  $('som').addEventListener('click', e => { e.stopPropagation(); alternarSom(); });
-  $('ondas').style.display = 'none';
-
-  /* teclas: F tela cheia, S som, C trocar a agenda */
-  function telaCheia() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }
-  document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT') return;
-    if (e.key === 's' || e.key === 'S') alternarSom();
-    if (e.key === 'f' || e.key === 'F') telaCheia();
-    if ((e.key === 'c' || e.key === 'C') && !DEMO) { $('url').value = endereco; $('erro').textContent = ''; $('conectar').hidden = false; $('url').focus(); }
-    if (e.key === 'Escape' && carregou) $('conectar').hidden = true;
+    $('pronto').hidden = false;
   });
-  document.addEventListener('dblclick', e => { if (!e.target.closest('#conectar')) telaCheia(); });
-  let moveu;
-  document.addEventListener('mousemove', () => { document.body.classList.remove('sem-mouse'); clearTimeout(moveu); moveu = setTimeout(() => document.body.classList.add('sem-mouse'), 2500); });
-  async function manterAcesa() { try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (_) {} }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { manterAcesa(); buscar(); } });
-  manterAcesa();
-
-  /* começo: demonstração, agenda guardada ou tela de conectar */
-  if (DEMO) {
-    receber(eventosDemo());
-  } else {
-    try {
-      const c = JSON.parse(ler(CHAVE_CACHE) || 'null');
-      if (endereco && c && c.fonte === endereco && Array.isArray(c.eventos)) { ultimoOk = c.quando || 0; ultimoHash = JSON.stringify(c.eventos); receber(c.eventos); }
-    } catch (_) {}
-    if (endereco) buscar(); else $('conectar').hidden = false;
-    setInterval(buscar, BUSCA_A_CADA);
-    setInterval(avisoVelho, 60000);
-  }
-
-  window.addEventListener('resize', () => atualizarMarcador(estado(agora())));
-  (function batida() { tick(); setTimeout(batida, 1000 - (Date.now() % 1000) + 15); })();
+  $('copiar-link').addEventListener('click', () => copiar(link, $('copiar-link'), 'Copiar o link'));
 })();
 </script>
 </body>
